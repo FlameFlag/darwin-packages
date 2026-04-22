@@ -63,6 +63,7 @@
                 uv
                 ruff
                 yamlfmt
+                just
                 ;
               python3 = pkgs.python3.withPackages (
                 ps:
