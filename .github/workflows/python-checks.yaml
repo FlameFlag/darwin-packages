@@ -17,6 +17,9 @@ on:
       - ".python-version"
       - ".github/workflows/python-checks.yaml"
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: ty + ruff
