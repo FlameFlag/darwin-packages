@@ -9,6 +9,31 @@
 # Built from the Karabiner-Elements source tree but kept as its own package so
 # that other tooling can theoretically `-lkrbn` against it without pulling in
 # the full Karabiner installation
+let
+  inherit (lib) escapeShellArgs;
+
+  cxxFlags = [
+    "-std=c++20"
+    "-O2"
+    "-Wall"
+    "-mmacosx-version-min=13.0"
+    "-I"
+    "src/share"
+    "-I"
+    "src/lib/libkrbn/include"
+    "-isystem"
+    "vendor/Karabiner-DriverKit-VirtualHIDDevice/include"
+    "-isystem"
+    "vendor/vendor/include"
+  ];
+
+  # pqrs swift @_cdecl glue baked into libkrbn.a per upstream's project.yml.
+  swiftGlue = {
+    module = "PQRSOSXFrontmostApplicationMonitorImpl";
+    bridge = "vendor/vendor/include/pqrs/osx/frontmost_application_monitor/impl/Bridging-Header.h";
+    source = "vendor/vendor/src/pqrs/osx/frontmost_application_monitor/PQRSOSXFrontmostApplicationMonitorImpl.swift";
+  };
+in
 swiftPackages.stdenv.mkDerivation (finalAttrs: {
   pname = "libkrbn";
   inherit (karabiner-elements-vendor) version;
@@ -40,15 +65,7 @@ swiftPackages.stdenv.mkDerivation (finalAttrs: {
     buildDir="$PWD/build"
     mkdir -p "$buildDir"
 
-    cxxflags=(
-      -std=c++20 -O2 -Wall
-      -mmacosx-version-min=13.0
-      -I src/share
-      -I src/lib/libkrbn/include
-      -isystem vendor/Karabiner-DriverKit-VirtualHIDDevice/include
-      -isystem vendor/vendor/include
-    )
-
+    cxxflags=( ${escapeShellArgs cxxFlags} )
     objs=()
 
     for src in src/lib/libkrbn/src/*.cpp; do
@@ -57,15 +74,12 @@ swiftPackages.stdenv.mkDerivation (finalAttrs: {
       objs+=("$obj")
     done
 
-    # The pqrs frontmost_application_monitor swift @_cdecl glue is a libkrbn
-    # source per the upstream project.yml. Compile it and bake it into the .a.
     swiftc -O -parse-as-library \
-      -module-name PQRSOSXFrontmostApplicationMonitorImpl \
-      -import-objc-header vendor/vendor/include/pqrs/osx/frontmost_application_monitor/impl/Bridging-Header.h \
-      -emit-object \
-      vendor/vendor/src/pqrs/osx/frontmost_application_monitor/PQRSOSXFrontmostApplicationMonitorImpl.swift \
-      -o "$buildDir/PQRSOSXFrontmostApplicationMonitorImpl.o"
-    objs+=("$buildDir/PQRSOSXFrontmostApplicationMonitorImpl.o")
+      -module-name ${swiftGlue.module} \
+      -import-objc-header ${swiftGlue.bridge} \
+      -emit-object ${swiftGlue.source} \
+      -o "$buildDir/${swiftGlue.module}.o"
+    objs+=("$buildDir/${swiftGlue.module}.o")
 
     ar rcs "$buildDir/libkrbn.a" "''${objs[@]}"
 

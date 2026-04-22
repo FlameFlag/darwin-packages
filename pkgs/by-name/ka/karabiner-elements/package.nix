@@ -14,7 +14,12 @@
 }:
 let
   inherit (karabiner-elements-vendor) version;
-  inherit (lib) escapeShellArgs concatMap mapAttrs attrValues;
+  inherit (lib)
+    escapeShellArgs
+    concatMap
+    mapAttrs
+    attrValues
+    ;
 
   src = fetchFromGitHub {
     owner = "pqrs-org";
@@ -40,29 +45,31 @@ let
     "vendor/vendor/include"
   ];
 
-  frameworks = concatMap (f: [
-    "-framework"
-    f
-  ]) [
-    "AppKit"
-    "Carbon"
-    "CoreFoundation"
-    "CoreGraphics"
-    "CoreServices"
-    "Foundation"
-    "IOKit"
-    "Security"
-  ];
+  frameworks =
+    concatMap
+      (f: [
+        "-framework"
+        f
+      ])
+      [
+        "AppKit"
+        "Carbon"
+        "CoreFoundation"
+        "CoreGraphics"
+        "CoreServices"
+        "Foundation"
+        "IOKit"
+        "Security"
+      ];
 
   # pqrs/osx swift @_cdecl glue modules that live under vendor/vendor/src/.
-  # The actual .swift files are only present after karabiner-elements-vendor
-  # has built, so the per-file loop still runs in bash — but the module set
-  # is declared here.
+  # Files are only materialized after karabiner-elements-vendor builds, so the
+  # per-file expansion still happens at build time via a bash glob, but each
+  # module gets its own block so the bridging-header path comes from Nix.
   swiftGlueModules = [
     "process_info"
     "workspace"
   ];
-  swiftGlueRoots = map (m: "vendor/vendor/src/pqrs/osx/${m}") swiftGlueModules;
 
   duktapeIncludeDirs = [
     "vendor/duktape-2.7.0/src"
@@ -98,8 +105,27 @@ let
       cxxflagsShell = escapeShellArgs (baseCxxFlags ++ includeFlags ++ extraCxxFlags);
       cflagsShell = escapeShellArgs (extraCFlags ++ includeFlags);
       frameworksShell = escapeShellArgs frameworks;
-      swiftRootsShell = escapeShellArgs swiftGlueRoots;
-      extraCSourcesShell = escapeShellArgs extraCSources;
+
+      # Compile one C source at a fixed path into $buildDir/extra_<base>.o.
+      compileExtraC = src: ''
+        cc ${cflagsShell} -c ${lib.escapeShellArg src} \
+          -o "$buildDir/extra_$(basename ${lib.escapeShellArg src} .c).o"
+        extraObjs+=("$buildDir/extra_$(basename ${lib.escapeShellArg src} .c).o")
+      '';
+
+      # Compile every .swift in one pqrs/osx glue module with its bridging header.
+      compileSwiftGlue = mod: ''
+        shopt -s nullglob
+        for src in vendor/vendor/src/pqrs/osx/${mod}/*.swift; do
+          base=$(basename "$src" .swift)
+          obj="$buildDir/swift_''${base}.o"
+          swiftc -O -parse-as-library -module-name "$base" \
+            -import-objc-header vendor/vendor/include/pqrs/osx/${mod}/impl/Bridging-Header.h \
+            -emit-object "$src" -o "$obj"
+          swiftObjs+=("$obj")
+        done
+        shopt -u nullglob
+      '';
     in
     swiftPackages.stdenv.mkDerivation {
       inherit pname version src;
@@ -129,26 +155,13 @@ let
         cxxflags=( ${cxxflagsShell} -I "$LIBKRBN/include" )
         frameworks=( ${frameworksShell} )
 
-        # Swift @_cdecl glue: compile every .swift under each module root.
+        # Swift @_cdecl glue: one block per module, bridging-header from Nix.
         swiftObjs=()
-        for src in $(find ${swiftRootsShell} -name '*.swift' 2>/dev/null); do
-          base=$(basename "$src" .swift)
-          modName=$(basename "$(dirname "$src")")
-          bridge="vendor/vendor/include/pqrs/osx/$modName/impl/Bridging-Header.h"
-          obj="$buildDir/swift_''${base}.o"
-          swiftc -O -parse-as-library -module-name "$base" \
-            -import-objc-header "$bridge" \
-            -emit-object "$src" -o "$obj"
-          swiftObjs+=("$obj")
-        done
+        ${lib.concatMapStrings compileSwiftGlue swiftGlueModules}
 
         # Spec-provided extra C sources (duktape for the CLI, empty for daemons).
         extraObjs=()
-        for src in ${extraCSourcesShell}; do
-          obj="$buildDir/extra_$(basename "$src" .c).o"
-          cc ${cflagsShell} -c "$src" -o "$obj"
-          extraObjs+=("$obj")
-        done
+        ${lib.concatMapStrings compileExtraC extraCSources}
 
         c++ "''${cxxflags[@]}" -fobjc-arc \
           -c ${lib.escapeShellArg mainSource} \
