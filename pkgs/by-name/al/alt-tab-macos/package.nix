@@ -202,16 +202,19 @@ let
     '';
 
   # Build a pure-Swift module from a directory of .swift files.
+  # Runs in a subshell so `files` stays scoped to this framework.
   buildSwiftModule = fw: ''
-    nixLog "Building ${fw.name}"
-    ${fw.name}_files=()
-    while IFS= read -r -d "" f; do
-      ${fw.name}_files+=("$f")
-    done < <(find ${fw.swiftSrcDir} -name '*.swift' -print0)
-    ${swiftFrameworkLink {
-      inherit (fw) name;
-      sourcesExpr = ''"''${${fw.name}_files[@]}"'';
-    }}
+    (
+      nixLog "Building ${fw.name}"
+      files=()
+      while IFS= read -r -d "" f; do
+        files+=("$f")
+      done < <(find ${fw.swiftSrcDir} -name '*.swift' -print0)
+      ${swiftFrameworkLink {
+        inherit (fw) name;
+        sourcesExpr = ''"''${files[@]}"'';
+      }}
+    )
   '';
 
   # Build a single-file Swift stub framework.
@@ -242,27 +245,29 @@ let
       sysFrameworkFlags = lib.concatMapStringsSep " " (f: "-framework ${f}") (o.sysFrameworks or [ ]);
     in
     ''
-      nixLog "Building ${fw.name}"
-      ${fw.name}_hdrDir="$buildDir/${fw.name}_headers/${fw.name}"
-      mkdir -p "''${${fw.name}_hdrDir}"
-      for h in ${o.headerGlob}; do
-        ln -s "$h" "''${${fw.name}_hdrDir}/$(basename "$h")"
-      done
-      cp ${o.moduleMap} "''${${fw.name}_hdrDir}/module.modulemap"
+      (
+        nixLog "Building ${fw.name}"
+        hdrDir="$buildDir/${fw.name}_headers/${fw.name}"
+        mkdir -p "$hdrDir"
+        for h in ${o.headerGlob}; do
+          ln -s "$h" "$hdrDir/$(basename "$h")"
+        done
+        cp ${o.moduleMap} "$hdrDir/module.modulemap"
 
-      ${fw.name}_objs=()
-      for f in ${o.sourceGlob}; do
-        _oname=$(basename "$f" .m)
-        clang ${arcFlag} -O2 -Wno-deprecated-declarations \
-          -I "$buildDir/${fw.name}_headers" ${includeFlags} \
-          -c "$f" -o "$buildDir/${fw.name}_$_oname.o"
-        ${fw.name}_objs+=("$buildDir/${fw.name}_$_oname.o")
-      done
+        objs=()
+        for f in ${o.sourceGlob}; do
+          obj="$buildDir/${fw.name}_$(basename "$f" .m).o"
+          clang ${arcFlag} -O2 -Wno-deprecated-declarations \
+            -I "$buildDir/${fw.name}_headers" ${includeFlags} \
+            -c "$f" -o "$obj"
+          objs+=("$obj")
+        done
 
-      clang -dynamiclib ${lib.optionalString arc "-fobjc-arc"} "''${${fw.name}_objs[@]}" \
-        ${sysFrameworkFlags} \
-        -install_name "@rpath/${fw.name}.framework/${fw.name}" \
-        -o "$buildDir/lib${fw.name}.dylib"
+        clang -dynamiclib ${lib.optionalString arc "-fobjc-arc"} "''${objs[@]}" \
+          ${sysFrameworkFlags} \
+          -install_name "@rpath/${fw.name}.framework/${fw.name}" \
+          -o "$buildDir/lib${fw.name}.dylib"
+      )
     '';
 
   # Dispatch to the right builder based on descriptor shape.
@@ -377,9 +382,9 @@ stdenv.mkDerivation (finalAttrs: {
       -c ${./stubs/AppCenterApplication.m} -o "$buildDir/AppCenterApplication.o"
 
     nixLog "Building AltTab"
-    altTabSwiftFiles=()
+    files=()
     while IFS= read -r -d "" f; do
-      altTabSwiftFiles+=("$f")
+      files+=("$f")
     done < <(find src -name '*.swift' -not -path '*/experimentations/*' -print0)
 
     swiftc "''${commonSwiftFlags[@]}" \
@@ -395,7 +400,7 @@ stdenv.mkDerivation (finalAttrs: {
       -framework CoreGraphics -framework CoreText \
       -Xlinker -rpath -Xlinker "@executable_path/../Frameworks" \
       "$buildDir/AppCenterApplication.o" \
-      "''${altTabSwiftFiles[@]}" -o "$buildDir/AltTab"
+      "''${files[@]}" -o "$buildDir/AltTab"
 
     runHook postBuild
   '';
