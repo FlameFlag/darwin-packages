@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: update-pkgs-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   update-packages:
     name: Update Packages (darwin)
