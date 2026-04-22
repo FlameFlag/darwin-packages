@@ -30,6 +30,7 @@
   removeReferencesTo,
   versionCheckHook,
   wrapGAppsHook4,
+  writeShellApplication,
   zig_0_15,
 
   # Upstream recommends a non-default level
@@ -165,10 +166,30 @@ let
   # crashes the frontend in the Nix sandbox. Install a frontend shim that
   # strips those flags and a swiftc copy that calls the shim. Emits a
   # shell variable `nixSwiftc` pointing to the patched driver.
+  swiftFrontendShim = writeShellApplication {
+    name = "swift-frontend";
+    runtimeInputs = [ ];
+    text = ''
+      # Strip -external-plugin-path flags (swift-plugin-server is absent in our SDK
+      # and makes the frontend crash in the Nix sandbox). Delegates to the raw
+      # frontend whose path is passed via GHOSTTY_RAW_SWIFT_FRONTEND.
+      filtered=()
+      skip_next=0
+      plugin_count=0
+      for arg in "$@"; do
+        if [ "$skip_next" -eq 1 ]; then skip_next=0; continue; fi
+        if [ "$arg" = "-external-plugin-path" ]; then skip_next=1; plugin_count=$((plugin_count+1)); continue; fi
+        filtered+=("$arg")
+      done
+      echo "swift-frontend-shim: filtered $plugin_count plugin paths from $# args, passing ''${#filtered[@]} args" >&2
+      exec "$GHOSTTY_RAW_SWIFT_FRONTEND" "''${filtered[@]}"
+    '';
+  };
+
   swiftShimSetup = ''
-    rawFrontend=$(grep "^prog=" ${swift}/bin/swift-frontend | cut -d= -f2)
+    rawFrontend=$(sed -n 's/^prog=//p' ${swift}/bin/swift-frontend)
     export GHOSTTY_RAW_SWIFT_FRONTEND="$rawFrontend"
-    install -D -m 755 ${./files/swift-frontend-wrapper.sh} .nix-swift-shim/swift-frontend
+    install -D -m 755 ${lib.getExe swiftFrontendShim} .nix-swift-shim/swift-frontend
     install -m 755 ${swift}/bin/swiftc .nix-swift-shim/swiftc
     sed -i "s|SWIFT_DRIVER_SWIFT_FRONTEND_EXEC=\"$rawFrontend\"|SWIFT_DRIVER_SWIFT_FRONTEND_EXEC=\"$PWD/.nix-swift-shim/swift-frontend\"|g" .nix-swift-shim/swiftc
     nixSwiftc="$PWD/.nix-swift-shim/swiftc"
@@ -187,6 +208,45 @@ let
     "*/Tests/*"
     "*/GhosttyUITests/*"
     "*/App Intents/*"
+  ];
+
+  # zig-out/share/<src> -> Contents/Resources/<dest>. Empty dest flattens into
+  # Resources root (ghostty/* goes alongside sdef/nibs).
+  resourceShares = [
+    {
+      src = "ghostty";
+      dest = "";
+    }
+    {
+      src = "man";
+      dest = "man";
+    }
+    {
+      src = "terminfo";
+      dest = "terminfo";
+    }
+  ];
+
+  # Split outputs: prefer the copy inside the app bundle (already filtered by
+  # mkAppBundle); fall back to the zig-out location if the bundle didn't land
+  # it (cross-build or disabled feature).
+  splitOutputs = [
+    {
+      output = "terminfo";
+      dest = "share/terminfo";
+      candidates = [
+        "$app/Contents/Resources/terminfo"
+        "$zigOut/share/terminfo"
+      ];
+    }
+    {
+      output = "shell_integration";
+      dest = "shell-integration";
+      candidates = [
+        "$app/Contents/Resources/shell-integration"
+        "$zigOut/share/ghostty/shell-integration"
+      ];
+    }
   ];
 
   # Build a stub Swift framework dylib (a single source file compiled via
@@ -489,8 +549,14 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     # crashes during its own link phase in the Nix sandbox, so we use an
     # output-file-map to collect per-source objects.
     nixLog "compiling Ghostty macOS app (''${#swiftFiles[@]} swift files)"
-    python3 ${./scripts/gen-filemap.py} "$buildDir" "''${swiftFiles[@]}" \
-      > "$buildDir/output-file-map.json"
+    {
+      printf '{\n'
+      for src in "''${swiftFiles[@]}"; do
+        name=$(basename "$src" .swift)
+        printf '  "%s": {"object": "%s/swift-objs/%s.o"},\n' "$src" "$buildDir" "$name"
+      done
+      printf '  "": {"swift-dependencies": "%s/swift-objs/Ghostty-master.swiftdeps"}\n}\n' "$buildDir"
+    } > "$buildDir/output-file-map.json"
 
     "$nixSwiftc" -j8 "''${swiftFlags[@]}" \
       -module-name Ghostty \
@@ -600,31 +666,30 @@ effectiveStdenv.mkDerivation (finalAttrs: {
           cp "$metallib" "$app/Contents/Resources/"
         fi
 
-        # Copy zig-out/share/<src> into Resources/<dest>. Empty dest means
-        # flatten into Resources root (ghostty/* goes alongside sdef/nibs).
-        for pair in "ghostty:" "man:man" "terminfo:terminfo"; do
-          src="''${pair%%:*}"; dest="''${pair##*:}"
-          [ -d "$zigOut/share/$src" ] || continue
-          nixLog "installing resources: share/$src -> Resources/$dest"
-          if [ -z "$dest" ]; then
-            cp -r "$zigOut/share/$src"/* "$app/Contents/Resources/" 2>/dev/null || true
-          else
-            mkdir -p "$app/Contents/Resources/$dest"
-            cp -r "$zigOut/share/$src"/* "$app/Contents/Resources/$dest/"
+        ${lib.concatMapStrings (r: ''
+          if [ -d "$zigOut/share/${r.src}" ]; then
+            nixLog "installing resources: share/${r.src} -> Resources/${r.dest}"
+            ${
+              if r.dest == "" then
+                ''cp -r "$zigOut/share/${r.src}"/* "$app/Contents/Resources/" 2>/dev/null || true''
+              else
+                ''
+                  mkdir -p "$app/Contents/Resources/${r.dest}"
+                  cp -r "$zigOut/share/${r.src}"/* "$app/Contents/Resources/${r.dest}/"
+                ''
+            }
           fi
-        done
+        '') resourceShares}
 
-        # Split outputs: copy from either the app bundle or directly from
-        # zig-out, whichever exists.
         mkdir -p "$terminfo/share" "$shell_integration" "$vim"
-        for candidate in \
-          "$app/Contents/Resources/terminfo" "$zigOut/share/terminfo"; do
-          [ -d "$candidate" ] && cp -r "$candidate" "$terminfo/share/terminfo" && break
-        done
-        for candidate in \
-          "$app/Contents/Resources/shell-integration" "$zigOut/share/ghostty/shell-integration"; do
-          [ -d "$candidate" ] && cp -r "$candidate" "$shell_integration/shell-integration" && break
-        done
+        ${lib.concatMapStrings (s: ''
+          for candidate in ${lib.concatStringsSep " " (map (c: ''"${c}"'') s.candidates)}; do
+            if [ -d "$candidate" ]; then
+              cp -r "$candidate" "''$${s.output}/${s.dest}"
+              break
+            fi
+          done
+        '') splitOutputs}
         [ -d "$zigOut/share/vim/vimfiles" ] && cp -r "$zigOut/share/vim/vimfiles" "$vim/" || true
 
         mkdir -p "$out/bin"
