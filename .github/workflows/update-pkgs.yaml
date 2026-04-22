@@ -56,12 +56,4 @@ jobs:
         shell: bash
         run: |-
           set -euo pipefail
-          for i in 1 2 3 4 5; do
-            if git push origin HEAD:${{ github.ref_name }}; then
-              exit 0
-            fi
-            git pull --rebase origin ${{ github.ref_name }} || true
-            sleep $((5 * i))
-          done
-          echo "::error::failed to push after 5 attempts"
-          exit 1
+          git push --force-with-lease origin "HEAD:${{ github.ref_name }}"
