@@ -7,7 +7,17 @@
     inputs:
     let
       lib = inputs.nixpkgs.lib;
-      systems = lib.systems.flakeExposed;
+      # Restrict to systems we actually target. `lib.systems.flakeExposed`
+      # includes armv6l-linux, i686-linux, etc
+      # `nix flake check --all-systems` evaluates legacyPackages for every one
+      # of those and trips on any nixpkgs package marked broken on a fringe
+      # arch.
+      systems = [
+        "aarch64-darwin"
+        "x86_64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ];
       forAllSystems = lib.genAttrs systems;
     in
     {
