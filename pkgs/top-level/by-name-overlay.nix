@@ -21,6 +21,11 @@ let
     mapAttrs
     mapAttrsToList
     mergeAttrsList
+    optionalAttrs
+    ;
+
+  inherit (builtins)
+    functionArgs
     ;
 
   # Package files for a single shard
@@ -61,11 +66,14 @@ self: super:
   # existing nixpkgs, so a by-name package may intentionally override an
   # upstream attribute of the same name. `self.callPackage` would then
   # infinitely recurse when the package references itself (e.g. via
-  # `.overrideAttrs`), so for colliding names we use `super.callPackage` and
-  # explicitly pass the original attribute. Fresh names use the normal
-  # upstream path so they can see sibling by-name packages through `self`.
+  # `.overrideAttrs`), so for colliding names we use `super.callPackage`.
+  # Only pass the original attribute as an argument when the package.nix
+  # function signature actually accepts it — otherwise callPackage errors
+  # with "unexpected argument '<name>'".
   if super ? ${name} then
-    super.callPackage file { ${name} = super.${name}; }
+    super.callPackage file (
+      optionalAttrs (functionArgs (import file) ? ${name}) { ${name} = super.${name}; }
+    )
   else
     self._internalCallByNamePackageFile file
 ) packageFiles
