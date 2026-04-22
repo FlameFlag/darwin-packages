@@ -1,0 +1,39 @@
+name: Flake check
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "**.nix"
+      - "flake.lock"
+      - ".github/workflows/flake-check.yaml"
+  pull_request:
+    paths:
+      - "**.nix"
+      - "flake.lock"
+      - ".github/workflows/flake-check.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: nix flake check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: DeterminateSystems/nix-installer-action@v22
+
+      - uses: nix-community/cache-nix-action@v7.0.2
+        with:
+          primary-key: nix-${{ runner.os }}-flake-check-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-flake-check-
+          purge: true
+          purge-prefixes: nix-${{ runner.os }}-flake-check-
+          purge-created: 0
+          purge-last-accessed: 604800
+          purge-primary-key: never
+
+      - name: nix flake check
+        run: nix flake check --all-systems --no-build
