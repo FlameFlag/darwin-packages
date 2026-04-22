@@ -1,0 +1,31 @@
+name: YAML format
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/**/*.yml"
+      - ".github/**/*.yaml"
+      - ".yamlfmt"
+      - ".github/workflows/yaml-check.yaml"
+  pull_request:
+    paths:
+      - ".github/**/*.yml"
+      - ".github/**/*.yaml"
+      - ".yamlfmt"
+      - ".github/workflows/yaml-check.yaml"
+
+jobs:
+  yamlfmt:
+    name: yamlfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Check .github YAML formatting
+        run: |
+          shopt -s globstar nullglob
+          nix run nixpkgs#yamlfmt -- -lint .github/**/*.yml .github/**/*.yaml
+        shell: bash

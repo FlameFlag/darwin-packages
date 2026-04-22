@@ -50,7 +50,7 @@ jobs:
 
       - name: Push
         shell: bash
-        run: |
+        run: |-
           set -euo pipefail
           for i in 1 2 3 4 5; do
             if git push origin HEAD:${{ github.ref_name }}; then
