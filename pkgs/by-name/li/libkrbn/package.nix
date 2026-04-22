@@ -10,8 +10,6 @@
 # that other tooling can theoretically `-lkrbn` against it without pulling in
 # the full Karabiner installation
 let
-  inherit (lib) escapeShellArgs;
-
   cxxFlags = [
     "-std=c++20"
     "-O2"
@@ -65,7 +63,7 @@ swiftPackages.stdenv.mkDerivation (finalAttrs: {
     buildDir="$PWD/build"
     mkdir -p "$buildDir"
 
-    cxxflags=( ${escapeShellArgs cxxFlags} )
+    ${lib.toShellVar "cxxflags" cxxFlags}
     objs=()
 
     for src in src/lib/libkrbn/src/*.cpp; do
