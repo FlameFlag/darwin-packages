@@ -15,6 +15,9 @@ on:
       - ".yamlfmt"
       - ".github/workflows/yaml-check.yaml"
 
+permissions:
+  contents: read
+
 jobs:
   yamlfmt:
     name: yamlfmt
@@ -22,10 +25,39 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Install yamlfmt
+        run: go install github.com/google/yamlfmt/cmd/yamlfmt@latest
 
       - name: Check .github YAML formatting
+        shell: bash
         run: |
           shopt -s globstar nullglob
-          nix run nixpkgs#yamlfmt -- -lint .github/**/*.yml .github/**/*.yaml
-        shell: bash
+          yamlfmt -lint .github/**/*.yml .github/**/*.yaml
+
+  zizmor:
+    name: zizmor (workflow lint)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Run zizmor
+        run: uvx zizmor@latest --format sarif .github/workflows .github/actions > zizmor.sarif
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
