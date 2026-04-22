@@ -27,9 +27,10 @@ SYSTEM = nix_eval("builtins.currentSystem", check=True)
 
 def nix_attr(pkg: str, attr: str) -> str:
     r = subprocess.run(
-        ["nix", "eval", "--impure", "--raw",
-         f".#legacyPackages.{SYSTEM}.{pkg}.{attr}"],
-        cwd=ROOT, capture_output=True, text=True,
+        ["nix", "eval", "--impure", "--raw", f".#legacyPackages.{SYSTEM}.{pkg}.{attr}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
     )
     return r.stdout.strip() if r.returncode == 0 else ""
 
@@ -37,7 +38,8 @@ def nix_attr(pkg: str, attr: str) -> str:
 def scrape(pkgfile: Path, key: str) -> str:
     m = re.search(
         rf'^\s*{re.escape(key)}\s*=\s*"([^"]*)"\s*;',
-        pkgfile.read_text(), re.M,
+        pkgfile.read_text(),
+        re.M,
     )
     return m.group(1) if m else ""
 
@@ -58,8 +60,10 @@ def rows() -> list[list[str]]:
 
 
 if __name__ == "__main__":
-    print(tabulate(
-        rows(),
-        headers=["Package", "Version", "Description"],
-        tablefmt="github",
-    ))
+    print(
+        tabulate(
+            rows(),
+            headers=["Package", "Version", "Description"],
+            tablefmt="github",
+        )
+    )

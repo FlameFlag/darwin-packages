@@ -38,9 +38,16 @@ from _common import (
 app = typer.Typer(add_completion=False, help=__doc__)
 
 
-def log_error(msg: str, file: str | None = None) -> None: gha("error", msg, file)
-def log_info(msg: str) -> None: gha("debug", msg)
-def log_notice(msg: str, file: str | None = None) -> None: gha("notice", msg, file)
+def log_error(msg: str, file: str | None = None) -> None:
+    gha("error", msg, file)
+
+
+def log_info(msg: str) -> None:
+    gha("debug", msg)
+
+
+def log_notice(msg: str, file: str | None = None) -> None:
+    gha("notice", msg, file)
 
 
 @dataclass(slots=True, frozen=True)
@@ -62,9 +69,7 @@ def extract_metadata(nix_file: Path) -> Metadata:
             f'in if us == null then "" else builtins.typeOf us'
         )
         kind: Literal["", "string", "path"] = (
-            "string" if update_type == "string"
-            else "path" if update_type == "path"
-            else ""
+            "string" if update_type == "string" else "path" if update_type == "path" else ""
         )
 
         owner = repo = ""
@@ -79,8 +84,7 @@ def extract_metadata(nix_file: Path) -> Metadata:
         else:
             if update_type:
                 log_info(
-                    f"passthru.updateScript has type '{update_type}', "
-                    "falling back to nix-update"
+                    f"passthru.updateScript has type '{update_type}', falling back to nix-update"
                 )
             owner = nix_eval(f"(import {wrapper}).src.owner")
             repo = nix_eval(f"(import {wrapper}).src.repo")
@@ -126,12 +130,18 @@ def run_string_update_script(nix_file: Path, meta: Metadata) -> None:
             "(builtins.readFile pkg.passthru.updateScript)\n"
         )
         try:
-            build = run([
-                "nix", "build", "--impure",
-                "--file", wrapper,
-                "--out-link", out_link,
-                "--print-build-logs",
-            ])
+            build = run(
+                [
+                    "nix",
+                    "build",
+                    "--impure",
+                    "--file",
+                    wrapper,
+                    "--out-link",
+                    out_link,
+                    "--print-build-logs",
+                ]
+            )
             if build.returncode != 0:
                 log_error(f"Failed to build updateScript for {meta.slug}", file=str(nix_file))
                 raise typer.Exit(1)
@@ -157,12 +167,17 @@ def run_string_update_script(nix_file: Path, meta: Metadata) -> None:
 def run_nix_update(nix_file: Path, wrapper: Path, version: str, meta: Metadata) -> None:
     log_info(f"Executing nix-update with version '{version}'...")
     print()
-    r = run([
-        "nix-update", f"--version={version}",
-        "-f", wrapper,
-        "--override-filename", nix_file,
-        "pkg",
-    ])
+    r = run(
+        [
+            "nix-update",
+            f"--version={version}",
+            "-f",
+            wrapper,
+            "--override-filename",
+            nix_file,
+            "pkg",
+        ]
+    )
     if r.returncode != 0:
         log_error(f"nix-update failed for {meta.slug}", file=str(nix_file))
         raise typer.Exit(1)
@@ -228,11 +243,15 @@ def commit_pkg(pkg_name: str, pkg_dir: Path) -> bool:
 @app.command("pkg")
 def cmd_pkg(
     nix_file: Path = typer.Argument(
-        ..., exists=True, dir_okay=False, readable=True,
+        ...,
+        exists=True,
+        dir_okay=False,
+        readable=True,
         help="Path to a package.nix under pkgs/by-name.",
     ),
     version: str = typer.Option(
-        "branch", "--version",
+        "branch",
+        "--version",
         help="Version argument for nix-update (ignored when an updateScript is present).",
     ),
 ) -> None:
@@ -243,7 +262,8 @@ def cmd_pkg(
 @app.command("all")
 def cmd_all(
     by_name: Path = typer.Option(
-        REPO_ROOT / "pkgs" / "by-name", "--by-name",
+        REPO_ROOT / "pkgs" / "by-name",
+        "--by-name",
         help="Root of the by-name package tree.",
     ),
 ) -> None:
