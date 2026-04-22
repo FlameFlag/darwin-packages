@@ -17,6 +17,11 @@
 let
   inherit (swiftPackages) stdenv swift;
 
+  # Each module becomes a .framework. Optional fields:
+  #   bridgingHeader: ObjC -> Swift bridging header
+  #   sysFrameworks:  system frameworks to link
+  #   objcSources:    .m files compiled to .o and linked in before the swiftc call
+  #   swiftDirs:      override the default source search roots
   moduleConfigs = [
     {
       name = "CPU";
@@ -63,11 +68,16 @@ let
         "CoreBluetooth"
       ];
     }
-    { name = "Sensors"; } # custom build (ObjC + Swift)
+    {
+      name = "Sensors";
+      bridgingHeader = "Modules/Sensors/bridge.h";
+      sysFrameworks = [ "IOKit" ];
+      objcSources = [ "Modules/Sensors/reader.m" ];
+      swiftDirs = [ "Modules/Sensors" ];
+    }
     { name = "Clock"; }
   ];
 
-  genericModules = lib.filter (m: m.name != "Sensors") moduleConfigs;
   allFrameworkNames = [ "Kit" ] ++ map (m: m.name) moduleConfigs;
   moduleNames = lib.tail allFrameworkNames;
 
@@ -94,7 +104,7 @@ let
       CFBundleName = "Stats";
       CFBundlePackageType = "APPL";
       CFBundleShortVersionString = version;
-      # CFBundleVersion is extracted from upstream's Info.plist at build time
+      CFBundleVersion = version;
       Description = "Simple macOS system monitor in your menu bar";
       LSApplicationCategoryType = "public.app-category.utilities";
       LSMinimumSystemVersion = "11.0";
@@ -117,53 +127,50 @@ let
     done < <(find ${lib.escapeShellArgs dirs} -name '*.swift' -print0 2>/dev/null)
   '';
 
-  # Full swiftc invocation for a generic module
-  buildModuleShell = mod: ''
-    nixLog "Building framework: ${mod.name}"
+  # Full swiftc invocation for a module, optionally preceded by ObjC compilation
+  buildModuleShell =
+    mod:
+    let
+      swiftDirs =
+        mod.swiftDirs or [
+          mod.name
+          "Modules/${mod.name}"
+        ];
+      objcSources = mod.objcSources or [ ];
+      objcVar = "${mod.name}ObjcObjs";
+      swiftVar = "${mod.name}SwiftFiles";
+    in
+    ''
+      nixLog "Building framework: ${mod.name}"
 
-    ${findSwiftFiles "swiftFiles" [
-      mod.name
-      "Modules/${mod.name}"
-    ]}
+      ${lib.optionalString (objcSources != [ ]) ''
+        ${objcVar}=()
+        ${lib.concatMapStringsSep "\n" (src: ''
+          obj="$buildDir/${mod.name}_$(basename ${lib.escapeShellArg src} .m).o"
+          clang -x objective-c \
+            -I "$(dirname ${lib.escapeShellArg src})" \
+            -fobjc-arc -O2 \
+            -c ${lib.escapeShellArg src} \
+            -o "$obj"
+          ${objcVar}+=("$obj")
+        '') objcSources}
+      ''}
 
-    swiftc \
-      "''${commonSwiftFlags[@]}" \
-      -emit-module -emit-library \
-      -module-name ${mod.name} -module-link-name ${mod.name} \
-      -emit-module-path "$buildDir/${mod.name}.swiftmodule" \
-      ${lib.optionalString (mod ? bridgingHeader) ''-import-objc-header "${mod.bridgingHeader}"''} \
-      -I "$buildDir" -L "$buildDir" \
-      -Xlinker -install_name -Xlinker "@rpath/${mod.name}.framework/${mod.name}" \
-      -lKit ${lib.concatMapStringsSep " " (f: "-framework ${f}") (mod.sysFrameworks or [ ])} \
-      "''${swiftFiles[@]}" \
-      -o "$buildDir/lib${mod.name}.dylib"
-  '';
+      ${findSwiftFiles swiftVar swiftDirs}
 
-  # Sensors needs ObjC compilation before Swift
-  buildSensorsShell = ''
-    nixLog "Building framework: Sensors"
-
-    clang -x objective-c \
-      -I "Modules/Sensors" \
-      -fobjc-arc -O2 \
-      -c Modules/Sensors/reader.m \
-      -o "$buildDir/sensors_reader.o"
-
-    ${findSwiftFiles "sensorsSwiftFiles" [ "Modules/Sensors" ]}
-
-    swiftc \
-      "''${commonSwiftFlags[@]}" \
-      -emit-module -emit-library \
-      -module-name Sensors -module-link-name Sensors \
-      -emit-module-path "$buildDir/Sensors.swiftmodule" \
-      -import-objc-header "Modules/Sensors/bridge.h" \
-      -I "$buildDir" -L "$buildDir" \
-      -lKit -framework IOKit \
-      -Xlinker -install_name -Xlinker "@rpath/Sensors.framework/Sensors" \
-      "$buildDir/sensors_reader.o" \
-      "''${sensorsSwiftFiles[@]}" \
-      -o "$buildDir/libSensors.dylib"
-  '';
+      swiftc \
+        "''${commonSwiftFlags[@]}" \
+        -emit-module -emit-library \
+        -module-name ${mod.name} -module-link-name ${mod.name} \
+        -emit-module-path "$buildDir/${mod.name}.swiftmodule" \
+        ${lib.optionalString (mod ? bridgingHeader) ''-import-objc-header "${mod.bridgingHeader}"''} \
+        -I "$buildDir" -L "$buildDir" \
+        -Xlinker -install_name -Xlinker "@rpath/${mod.name}.framework/${mod.name}" \
+        -lKit ${lib.concatMapStringsSep " " (f: "-framework ${f}") (mod.sysFrameworks or [ ])} \
+        ${lib.optionalString (objcSources != [ ]) ''"''${${objcVar}[@]}"''} \
+        "''${${swiftVar}[@]}" \
+        -o "$buildDir/lib${mod.name}.dylib"
+    '';
 
   # Compile an asset catalog
   compileAssetCatalog =
@@ -271,9 +278,7 @@ stdenv.mkDerivation (finalAttrs: {
       "''${kitSwiftFiles[@]}" \
       -o "$buildDir/libKit.dylib"
 
-    ${lib.concatMapStrings buildModuleShell genericModules}
-
-    ${buildSensorsShell}
+    ${lib.concatMapStrings buildModuleShell moduleConfigs}
 
     nixLog "Building Stats app"
 
@@ -310,13 +315,6 @@ stdenv.mkDerivation (finalAttrs: {
     '') allFrameworkNames}
 
     printf '%s' ${lib.escapeShellArg (mainInfoPlist finalAttrs.version)} > "$app/Contents/Info.plist"
-    # Splice CFBundleVersion from upstream's checked-in Info.plist so it stays
-    # in sync automatically — nix-update-script bumps the tag & hash, and the
-    # new source tree carries the correct build number
-    bundleVersion=$(sed -n '/<key>CFBundleVersion<\/key>/{n;s/.*<string>\(.*\)<\/string>.*/\1/p;}' \
-      "Stats/Supporting Files/Info.plist")
-    sed -i "s|</dict>|<key>CFBundleVersion</key><string>$bundleVersion</string></dict>|" \
-      "$app/Contents/Info.plist"
 
     ${compileAssetCatalog {
       destDir = "$app/Contents/Resources";
