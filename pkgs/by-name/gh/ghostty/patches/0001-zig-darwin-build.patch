@@ -1,0 +1,50 @@
+diff --git a/build.zig b/build.zig
+index f9d861b..bc5f768 100644
+--- a/build.zig
++++ b/build.zig
+@@ -138,7 +138,7 @@ pub fn build(b: *std.Build) !void {
+ 
+         // We shouldn't have this guard but we don't currently
+         // build on macOS this way ironically so we need to fix that.
+-        if (!config.target.result.os.tag.isDarwin()) {
++        if (true) {
+             libghostty_shared.installHeader(); // Only need one header
+             libghostty_shared.install("libghostty.so");
+             libghostty_static.install("libghostty.a");
+@@ -147,7 +147,7 @@ pub fn build(b: *std.Build) !void {
+ 
+     // macOS only artifacts. These will error if they're initialized for
+     // other targets.
+-    if (config.target.result.os.tag.isDarwin()) {
++    if (config.target.result.os.tag.isDarwin() and (config.emit_xcframework or config.emit_macos_app)) {
+         // Ghostty xcframework
+         const xcframework = try buildpkg.GhosttyXCFramework.init(
+             b,
+@@ -202,7 +202,7 @@ pub fn build(b: *std.Build) !void {
+ 
+         // On macOS we can run the macOS app. For "run" we always force
+         // a native-only build so that we can run as quickly as possible.
+-        if (config.target.result.os.tag.isDarwin()) {
++        if (config.target.result.os.tag.isDarwin() and (config.emit_xcframework or config.emit_macos_app)) {
+             const xcframework_native = try buildpkg.GhosttyXCFramework.init(
+                 b,
+                 &deps,
+diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
+index 9276c99..571df35 100644
+--- a/src/build/SharedDeps.zig
++++ b/src/build/SharedDeps.zig
+@@ -380,11 +380,11 @@ pub fn add(
+     if (step.rootModuleTarget().os.tag.isDarwin()) {
+         try @import("apple_sdk").addPaths(b, step);
+ 
+-        const metallib = self.metallib.?;
+-        metallib.output.addStepDependencies(&step.step);
+         step.root_module.addAnonymousImport("ghostty_metallib", .{
+-            .root_source_file = metallib.output,
++            .root_source_file = b.path("Ghostty.metallib"),
+         });
++        step.linkFramework("Metal");
++        step.linkFramework("MetalKit");
+     }
+ 
+     // Other dependencies, mostly pure Zig

@@ -1,0 +1,29 @@
+name: 'Update Packages'
+description: 'Walk every package.nix under pkgs/by-name and commit per-package bumps'
+
+inputs:
+  platform:
+    description: 'Platform name (for logging)'
+    required: true
+    default: 'darwin'
+
+outputs:
+  has_changes:
+    description: 'Whether any packages were updated'
+    value: ${{ steps.update.outputs.has_changes }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure git identity
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+    - name: Update packages
+      id: update
+      shell: bash
+      env:
+        PLATFORM: ${{ inputs.platform }}
+      run: nix develop --impure --command python3 ./scripts/update.py all

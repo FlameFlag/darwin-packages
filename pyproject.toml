@@ -1,0 +1,41 @@
+[project]
+name = "darwin-packages-scripts"
+version = "0.0.0"
+description = "Scripts for the darwin-packages flake"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+    "tabulate>=0.9",
+    "cogapp>=3.4",
+]
+
+[dependency-groups]
+dev = [
+    "ty>=0.0.31",
+    "ruff>=0.6",
+]
+
+[tool.uv]
+package = false
+
+[tool.ty.environment]
+python = ".venv"
+python-version = "3.12"
+
+[tool.ty.src]
+include = ["scripts"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["_common"]

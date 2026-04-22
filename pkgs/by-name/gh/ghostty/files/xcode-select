@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+case "$1" in --print-path|-p) echo "$SDKROOT"; exit 0 ;; esac
+exit 0

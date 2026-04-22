@@ -1,0 +1,459 @@
+diff --git a/macos/Sources/Features/App Intents/CloseTerminalIntent.swift b/macos/Sources/Features/App Intents/CloseTerminalIntent.swift
+index c3cca25..174d844 100644
+--- a/macos/Sources/Features/App Intents/CloseTerminalIntent.swift	
++++ b/macos/Sources/Features/App Intents/CloseTerminalIntent.swift	
+@@ -8,7 +8,7 @@ struct CloseTerminalIntent: AppIntent {
+ 
+     @Parameter(
+         title: "Terminal",
+-        description: "The terminal to close.",
++        description: "The terminal to close."
+     )
+     var terminal: TerminalEntity
+ 
+diff --git a/macos/Sources/Features/App Intents/Entities/CommandEntity.swift b/macos/Sources/Features/App Intents/Entities/CommandEntity.swift
+index f05b5d9..b5a80bd 100644
+--- a/macos/Sources/Features/App Intents/Entities/CommandEntity.swift	
++++ b/macos/Sources/Features/App Intents/Entities/CommandEntity.swift	
+@@ -34,7 +34,7 @@ struct CommandEntity: AppEntity {
+     var displayRepresentation: DisplayRepresentation {
+         DisplayRepresentation(
+             title: LocalizedStringResource(stringLiteral: command.title),
+-            subtitle: LocalizedStringResource(stringLiteral: command.description),
++            subtitle: LocalizedStringResource(stringLiteral: command.description)
+         )
+     }
+ 
+diff --git a/macos/Sources/Features/App Intents/FocusTerminalIntent.swift b/macos/Sources/Features/App Intents/FocusTerminalIntent.swift
+index 21dd71b..4814672 100644
+--- a/macos/Sources/Features/App Intents/FocusTerminalIntent.swift	
++++ b/macos/Sources/Features/App Intents/FocusTerminalIntent.swift	
+@@ -8,7 +8,7 @@ struct FocusTerminalIntent: AppIntent {
+ 
+     @Parameter(
+         title: "Terminal",
+-        description: "The terminal to focus.",
++        description: "The terminal to focus."
+     )
+     var terminal: TerminalEntity
+ 
+diff --git a/macos/Sources/Features/App Intents/IntentPermission.swift b/macos/Sources/Features/App Intents/IntentPermission.swift
+index 26a21e7..fff36e7 100644
+--- a/macos/Sources/Features/App Intents/IntentPermission.swift	
++++ b/macos/Sources/Features/App Intents/IntentPermission.swift	
+@@ -47,7 +47,7 @@ func requestIntentPermission() async -> Bool {
+                 "com.mitchellh.ghostty.shortcutsPermission",
+                 message: "Allow Shortcuts to interact with Ghostty?",
+                 allowDuration: .forever,
+-                rememberDuration: nil,
++                rememberDuration: nil
+             ) { response in
+                 continuation.resume(returning: response)
+             }
+diff --git a/macos/Sources/Features/App Intents/NewTerminalIntent.swift b/macos/Sources/Features/App Intents/NewTerminalIntent.swift
+index 858d5ce..b04bc48 100644
+--- a/macos/Sources/Features/App Intents/NewTerminalIntent.swift	
++++ b/macos/Sources/Features/App Intents/NewTerminalIntent.swift	
+@@ -19,7 +19,7 @@ struct NewTerminalIntent: AppIntent {
+ 
+     @Parameter(
+         title: "Command",
+-        description: "Command to execute within your configured shell.",
++        description: "Command to execute within your configured shell."
+     )
+     var command: String?
+ 
+diff --git a/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift b/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift
+index 990cd8b..9b4e7c4 100644
+--- a/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift	
++++ b/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift	
+@@ -140,4 +140,4 @@ private extension NSDockTile {
+ 
+ // This is required because of the DispatchQueue call above. This doesn't
+ // feel right but I don't know a better way to solve this.
+-extension NSDockTile: @unchecked @retroactive Sendable {}
++extension NSDockTile: @unchecked Sendable {}
+diff --git a/macos/Sources/Features/QuickTerminal/QuickTerminalController.swift b/macos/Sources/Features/QuickTerminal/QuickTerminalController.swift
+index 214ff08..982b891 100644
+--- a/macos/Sources/Features/QuickTerminal/QuickTerminalController.swift
++++ b/macos/Sources/Features/QuickTerminal/QuickTerminalController.swift
+@@ -41,7 +41,7 @@ class QuickTerminalController: BaseTerminalController {
+     init(_ ghostty: Ghostty.App,
+          position: QuickTerminalPosition = .top,
+          baseConfig base: Ghostty.SurfaceConfiguration? = nil,
+-         restorationState: QuickTerminalRestorableState? = nil,
++         restorationState: QuickTerminalRestorableState? = nil
+     ) {
+         self.position = position
+         self.derivedConfig = DerivedConfig(ghostty.config)
+diff --git a/macos/Sources/Features/Terminal/TerminalController.swift b/macos/Sources/Features/Terminal/TerminalController.swift
+index 56b0b40..6d99aa6 100644
+--- a/macos/Sources/Features/Terminal/TerminalController.swift
++++ b/macos/Sources/Features/Terminal/TerminalController.swift
+@@ -312,7 +312,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
+         _ ghostty: Ghostty.App,
+         tree: SplitTree<Ghostty.SurfaceView>,
+         position: NSPoint? = nil,
+-        confirmUndo: Bool = true,
++        confirmUndo: Bool = true
+     ) -> TerminalController {
+         let c = TerminalController.init(ghostty, withSurfaceTree: tree)
+ 
+@@ -1095,12 +1095,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
+         // style) don't change the frame after the position is restored.
+         let originChanged = terminalWindow.setInitialWindowPosition(
+             x: derivedConfig.windowPositionX,
+-            y: derivedConfig.windowPositionY,
++            y: derivedConfig.windowPositionY
+         )
+         let restored = LastWindowPosition.shared.restore(
+             terminalWindow,
+             origin: !originChanged,
+-            size: defaultSize == nil,
++            size: defaultSize == nil
+         )
+ 
+         // If nothing is changed for the frame,
+@@ -1335,7 +1335,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
+         // attached to the window that needs confirmation.
+         confirmController.confirmClose(
+             messageText: "Close Window?",
+-            informativeText: "All terminal sessions in this window will be terminated.",
++            informativeText: "All terminal sessions in this window will be terminated."
+         ) {
+             self.closeWindowImmediately()
+         }
+diff --git a/macos/Sources/Ghostty/Ghostty.Shell.swift b/macos/Sources/Ghostty/Ghostty.Shell.swift
+index 2630b99..9cd4b45 100644
+--- a/macos/Sources/Ghostty/Ghostty.Shell.swift
++++ b/macos/Sources/Ghostty/Ghostty.Shell.swift
+@@ -17,7 +17,7 @@ extension Ghostty {
+             return result
+         }
+ 
+-        private static let quoteUnsafe = /[^\w@%+=:,.\/-]/
++        private static let quoteUnsafe = try! Regex("[^\\w@%+=:,./-]")
+ 
+         /// Returns a shell-quoted version of the string, like Python's shlex.quote.
+         /// Suitable for building shell command lines that will be executed.
+diff --git a/macos/Sources/Ghostty/GhosttyPackage.swift b/macos/Sources/Ghostty/GhosttyPackage.swift
+index 0321186..7c7e201 100644
+--- a/macos/Sources/Ghostty/GhosttyPackage.swift
++++ b/macos/Sources/Ghostty/GhosttyPackage.swift
+@@ -5,11 +5,11 @@ import GhosttyKit
+ // MARK: C Extensions
+ 
+ /// A command is fully self-contained so it is Sendable.
+-extension ghostty_command_s: @unchecked @retroactive Sendable {}
++extension ghostty_command_s: @unchecked Sendable {}
+ 
+ /// A surface is sendable because it is just a reference type. Using the surface in parameters
+ /// may be unsafe but the value itself is safe to send across threads.
+-extension ghostty_surface_t: @unchecked @retroactive Sendable {}
++extension ghostty_surface_t: @unchecked Sendable {}
+ 
+ extension Ghostty {
+     // The user notification category identifier
+@@ -450,4 +450,4 @@ extension Ghostty.Notification {
+ }
+ 
+ // Make the input enum hashable.
+-extension ghostty_input_key_e: @retroactive Hashable {}
++extension ghostty_input_key_e: Hashable {}
+diff --git a/macos/Sources/Ghostty/Surface View/SurfaceView.swift b/macos/Sources/Ghostty/Surface View/SurfaceView.swift
+index 47503dc..6767a55 100644
+--- a/macos/Sources/Ghostty/Surface View/SurfaceView.swift	
++++ b/macos/Sources/Ghostty/Surface View/SurfaceView.swift	
+@@ -409,50 +409,54 @@ extension Ghostty {
+ 
+         private let padding: CGFloat = 8
+ 
++        private var searchTextField: some View {
++            TextField("Search", text: $searchState.needle)
++            .textFieldStyle(.plain)
++            .frame(width: 180)
++            .padding(.leading, 8)
++            .padding(.trailing, 50)
++            .padding(.vertical, 6)
++            .background(Color.primary.opacity(0.1))
++            .cornerRadius(6)
++            .focused($isSearchFieldFocused)
++            .overlay(alignment: .trailing) {
++                if let selected = searchState.selected {
++                    Text("\(selected + 1)/\(searchState.total.map(String.init) ?? "?")")
++                        .font(.caption)
++                        .foregroundColor(.secondary)
++                        .monospacedDigit()
++                        .padding(.trailing, 8)
++                } else if let total = searchState.total {
++                    Text("-/\(total)")
++                        .font(.caption)
++                        .foregroundColor(.secondary)
++                        .monospacedDigit()
++                        .padding(.trailing, 8)
++                }
++            }
++#if canImport(AppKit)
++            .onExitCommand {
++                if searchState.needle.isEmpty {
++                    onClose()
++                } else {
++                    Ghostty.moveFocus(to: surfaceView)
++                }
++            }
++#endif
++            .backport.onKeyPress(.return) { modifiers in
++                guard let surface = surfaceView.surface else { return .ignored }
++                let action = modifiers.contains(.shift)
++                ? "navigate_search:previous"
++                : "navigate_search:next"
++                ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8)))
++                return .handled
++            }
++        }
++
+         var body: some View {
+             GeometryReader { geo in
+                 HStack(spacing: 4) {
+-                    TextField("Search", text: $searchState.needle)
+-                    .textFieldStyle(.plain)
+-                    .frame(width: 180)
+-                    .padding(.leading, 8)
+-                    .padding(.trailing, 50)
+-                    .padding(.vertical, 6)
+-                    .background(Color.primary.opacity(0.1))
+-                    .cornerRadius(6)
+-                    .focused($isSearchFieldFocused)
+-                    .overlay(alignment: .trailing) {
+-                        if let selected = searchState.selected {
+-                            Text("\(selected + 1)/\(searchState.total, default: "?")")
+-                                .font(.caption)
+-                                .foregroundColor(.secondary)
+-                                .monospacedDigit()
+-                                .padding(.trailing, 8)
+-                        } else if let total = searchState.total {
+-                            Text("-/\(total)")
+-                                .font(.caption)
+-                                .foregroundColor(.secondary)
+-                                .monospacedDigit()
+-                                .padding(.trailing, 8)
+-                        }
+-                    }
+-#if canImport(AppKit)
+-                    .onExitCommand {
+-                        if searchState.needle.isEmpty {
+-                            onClose()
+-                        } else {
+-                            Ghostty.moveFocus(to: surfaceView)
+-                        }
+-                    }
+-#endif
+-                    .backport.onKeyPress(.return) { modifiers in
+-                        guard let surface = surfaceView.surface else { return .ignored }
+-                        let action = modifiers.contains(.shift)
+-                        ? "navigate_search:previous"
+-                        : "navigate_search:next"
+-                        ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8)))
+-                        return .handled
+-                    }
++searchTextField
+ 
+                     Button(action: {
+                         guard let surface = surfaceView.surface else { return }
+@@ -522,11 +526,7 @@ extension Ghostty {
+         }
+ 
+         private var clipShape: some Shape {
+-            if #available(iOS 26.0, macOS 26.0, *) {
+-                return ConcentricRectangle(corners: .concentric(minimum: 8), isUniform: true)
+-            } else {
+-                return RoundedRectangle(cornerRadius: 8)
+-            }
++            return RoundedRectangle(cornerRadius: 8)
+         }
+ 
+         enum Corner {
+diff --git a/macos/Sources/Helpers/Backport.swift b/macos/Sources/Helpers/Backport.swift
+index e2afb5b..86f6ec7 100644
+--- a/macos/Sources/Helpers/Backport.swift
++++ b/macos/Sources/Helpers/Backport.swift
+@@ -27,11 +27,7 @@ enum BackportKeyPressResult {
+ extension Backport where Content: View {
+     func pointerVisibility(_ v: BackportVisibility) -> some View {
+         #if canImport(AppKit)
+-        if #available(macOS 15, *) {
+-            return content.pointerVisibility(v.official)
+-        } else {
+-            return content
+-        }
++        return content
+         #else
+         return content
+         #endif
+@@ -39,11 +35,7 @@ extension Backport where Content: View {
+ 
+     func pointerStyle(_ style: BackportPointerStyle?) -> some View {
+         #if canImport(AppKit)
+-        if #available(macOS 15, *) {
+-            return content.pointerStyle(style?.official)
+-        } else {
+-            return content
+-        }
++        return content
+         #else
+         return content
+         #endif
+@@ -99,22 +91,7 @@ enum BackportPointerStyle {
+ 
+     #if canImport(AppKit)
+     @available(macOS 15, *)
+-    var official: PointerStyle {
+-        switch self {
+-        case .default: return .default
+-        case .grabIdle: return .grabIdle
+-        case .grabActive: return .grabActive
+-        case .horizontalText: return .horizontalText
+-        case .verticalText: return .verticalText
+-        case .link: return .link
+-        case .resizeLeft: return .frameResize(position: .trailing, directions: [.inward])
+-        case .resizeRight: return .frameResize(position: .leading, directions: [.inward])
+-        case .resizeUp: return .frameResize(position: .bottom, directions: [.inward])
+-        case .resizeDown: return .frameResize(position: .top, directions: [.inward])
+-        case .resizeUpDown: return .frameResize(position: .top)
+-        case .resizeLeftRight: return .frameResize(position: .trailing)
+-        }
+-    }
++    var official: Int { fatalError("unavailable") }
+     #endif
+ }
+ 
+@@ -123,11 +100,6 @@ enum BackportNSGlassStyle {
+ 
+     #if canImport(AppKit)
+     @available(macOS 26, *)
+-    var official: NSGlassEffectView.Style {
+-        switch self {
+-        case .regular: return .regular
+-        case .clear: return .clear
+-        }
+-    }
++    var official: Int { fatalError("unavailable") }
+     #endif
+ }
+diff --git a/macos/Sources/Helpers/Cursor.swift b/macos/Sources/Helpers/Cursor.swift
+index f749386..fa5ce50 100644
+--- a/macos/Sources/Helpers/Cursor.swift
++++ b/macos/Sources/Helpers/Cursor.swift
+@@ -72,41 +72,17 @@ extension CursorStyle {
+         case .link:
+             return .pointingHand
+         case .resizeLeft:
+-            if #available(macOS 15.0, *) {
+-                return .columnResize(directions: .left)
+-            } else {
+-                return .resizeLeft
+-            }
++            return .resizeLeft
+         case .resizeRight:
+-            if #available(macOS 15.0, *) {
+-                return .columnResize(directions: .right)
+-            } else {
+-                return .resizeRight
+-            }
++            return .resizeRight
+         case .resizeUp:
+-            if #available(macOS 15.0, *) {
+-                return .rowResize(directions: .up)
+-            } else {
+-                return .resizeUp
+-            }
++            return .resizeUp
+         case .resizeDown:
+-            if #available(macOS 15.0, *) {
+-                return .rowResize(directions: .down)
+-            } else {
+-                return .resizeDown
+-            }
++            return .resizeDown
+         case .resizeUpDown:
+-            if #available(macOS 15.0, *) {
+-                return .rowResize
+-            } else {
+-                return .resizeUpDown
+-            }
++            return .resizeUpDown
+         case .resizeLeftRight:
+-            if #available(macOS 15.0, *) {
+-                return .columnResize
+-            } else {
+-                return .resizeLeftRight
+-            }
++            return .resizeLeftRight
+         case .contextMenu:
+             return .contextualMenu
+         case .crosshair:
+diff --git a/macos/Sources/Helpers/Extensions/FileHandle+Extension.swift b/macos/Sources/Helpers/Extensions/FileHandle+Extension.swift
+index b6df4a6..6e62e94 100644
+--- a/macos/Sources/Helpers/Extensions/FileHandle+Extension.swift
++++ b/macos/Sources/Helpers/Extensions/FileHandle+Extension.swift
+@@ -1,6 +1,6 @@
+ import Foundation
+ 
+-extension FileHandle: @retroactive TextOutputStream {
++extension FileHandle: TextOutputStream {
+     /// Write a string to a filehandle.
+     public func write(_ string: String) {
+         let data = Data(string.utf8)
+diff --git a/macos/Sources/Helpers/Extensions/KeyboardShortcut+Extension.swift b/macos/Sources/Helpers/Extensions/KeyboardShortcut+Extension.swift
+index 7891f12..725a4ca 100644
+--- a/macos/Sources/Helpers/Extensions/KeyboardShortcut+Extension.swift
++++ b/macos/Sources/Helpers/Extensions/KeyboardShortcut+Extension.swift
+@@ -1,6 +1,6 @@
+ import SwiftUI
+ 
+-extension KeyboardShortcut: @retroactive CustomStringConvertible {
++extension KeyboardShortcut: CustomStringConvertible {
+     public var keyList: [String] {
+         var result: [String] = []
+ 
+@@ -46,7 +46,7 @@ extension KeyboardShortcut: @retroactive CustomStringConvertible {
+ }
+ 
+ // This is available in macOS 14 so this only applies to early macOS versions.
+-extension KeyEquivalent: @retroactive Equatable {
++extension KeyEquivalent: Equatable {
+     public static func == (lhs: KeyEquivalent, rhs: KeyEquivalent) -> Bool {
+         lhs.character == rhs.character
+     }
+diff --git a/macos/Sources/Helpers/Extensions/NSApplication+Extension.swift b/macos/Sources/Helpers/Extensions/NSApplication+Extension.swift
+index 2d3bc2c..ada3bb3 100644
+--- a/macos/Sources/Helpers/Extensions/NSApplication+Extension.swift
++++ b/macos/Sources/Helpers/Extensions/NSApplication+Extension.swift
+@@ -27,7 +27,7 @@ extension NSApplication {
+     }
+ }
+ 
+-extension NSApplication.PresentationOptions.Element: @retroactive Hashable {
++extension NSApplication.PresentationOptions.Element: Hashable {
+     public func hash(into hasher: inout Hasher) {
+         hasher.combine(rawValue)
+     }
+diff --git a/macos/Sources/Helpers/Extensions/View+Extension.swift b/macos/Sources/Helpers/Extensions/View+Extension.swift
+index fb6e0c2..6f39bc0 100644
+--- a/macos/Sources/Helpers/Extensions/View+Extension.swift
++++ b/macos/Sources/Helpers/Extensions/View+Extension.swift
+@@ -19,13 +19,6 @@ extension View {
+ 
+ extension View {
+     func pointerStyleFromCursor(_ cursor: NSCursor) -> some View {
+-        if #available(macOS 15.0, *) {
+-            return self.pointerStyle(.image(
+-                Image(nsImage: cursor.image),
+-                hotSpot: .init(x: cursor.hotSpot.x, y: cursor.hotSpot.y)
+-            ))
+-        } else {
+-            return self
+-        }
++        return self
+     }
+ }

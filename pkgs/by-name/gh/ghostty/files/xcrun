@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+for arg in "$@"; do
+  case "$arg" in --show-sdk-path) echo "$SDKROOT"; exit 0 ;; esac
+done
+echo "$SDKROOT"
