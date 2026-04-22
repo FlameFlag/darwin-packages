@@ -1,0 +1,60 @@
+name: Build changed packages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "pkgs/by-name/**"
+      - "default.nix"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/build-packages.yaml"
+  pull_request:
+    paths:
+      - "pkgs/by-name/**"
+      - "default.nix"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/build-packages.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect changed packages
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.find.outputs.packages }}
+      has_packages: ${{ steps.find.outputs.has_packages }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+
+      - id: find
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: uv run scripts/changed-packages.py
+
+  build:
+    name: Build ${{ matrix.package }}
+    needs: detect
+    if: needs.detect.outputs.has_packages == 'true'
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.detect.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Build ${{ matrix.package }}
+        run: nix build --print-build-logs ".#${{ matrix.package }}"
