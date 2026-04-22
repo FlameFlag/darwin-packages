@@ -15,11 +15,18 @@
 let
   inherit (karabiner-elements-vendor) version;
   inherit (lib)
-    escapeShellArgs
     concatMap
     mapAttrs
     attrValues
+    toShellVars
     ;
+
+  prefixEach =
+    flag:
+    concatMap (x: [
+      flag
+      x
+    ]);
 
   src = fetchFromGitHub {
     owner = "pqrs-org";
@@ -30,7 +37,7 @@ let
   };
 
   # Nix-side description of the shared compile environment. These lists are
-  # emitted into each binary's buildPhase via `escapeShellArgs`, so adding or
+  # emitted into each binary's buildPhase via `toShellVars`, so adding or
   # removing a flag/framework/include is a pure data edit.
   baseCxxFlags = [
     "-std=c++20"
@@ -45,22 +52,16 @@ let
     "vendor/vendor/include"
   ];
 
-  frameworks =
-    concatMap
-      (f: [
-        "-framework"
-        f
-      ])
-      [
-        "AppKit"
-        "Carbon"
-        "CoreFoundation"
-        "CoreGraphics"
-        "CoreServices"
-        "Foundation"
-        "IOKit"
-        "Security"
-      ];
+  frameworks = prefixEach "-framework" [
+    "AppKit"
+    "Carbon"
+    "CoreFoundation"
+    "CoreGraphics"
+    "CoreServices"
+    "Foundation"
+    "IOKit"
+    "Security"
+  ];
 
   # pqrs/osx swift @_cdecl glue modules that live under vendor/vendor/src/.
   # Files are only materialized after karabiner-elements-vendor builds, so the
@@ -81,10 +82,7 @@ let
     "vendor/duktape-2.7.0/extras/console/duk_console.c"
     "vendor/duktape-2.7.0/extras/module-node/duk_module_node.c"
   ];
-  duktapeIncludeFlags = concatMap (d: [
-    "-I"
-    d
-  ]) duktapeIncludeDirs;
+  duktapeIncludeFlags = prefixEach "-I" duktapeIncludeDirs;
 
   # Single generator. Each binary is fully described by its spec; buildPhase
   # is assembled uniformly from that data.
@@ -98,17 +96,16 @@ let
       extraCFlags ? [ ],
     }:
     let
-      includeFlags = concatMap (d: [
-        "-I"
-        d
-      ]) extraIncludes;
-      cxxflagsShell = escapeShellArgs (baseCxxFlags ++ includeFlags ++ extraCxxFlags);
-      cflagsShell = escapeShellArgs (extraCFlags ++ includeFlags);
-      frameworksShell = escapeShellArgs frameworks;
+      includeFlags = prefixEach "-I" extraIncludes;
+      shellVars = toShellVars {
+        cxxflags = baseCxxFlags ++ includeFlags ++ extraCxxFlags;
+        cflags = extraCFlags ++ includeFlags;
+        frameworks = frameworks;
+      };
 
       # Compile one C source at a fixed path into $buildDir/extra_<base>.o.
       compileExtraC = src: ''
-        cc ${cflagsShell} -c ${lib.escapeShellArg src} \
+        cc "''${cflags[@]}" -c ${lib.escapeShellArg src} \
           -o "$buildDir/extra_$(basename ${lib.escapeShellArg src} .c).o"
         extraObjs+=("$buildDir/extra_$(basename ${lib.escapeShellArg src} .c).o")
       '';
@@ -151,9 +148,9 @@ let
         buildDir="$PWD/build"
         mkdir -p "$buildDir"
 
+        ${shellVars}
         # -I "$LIBKRBN/include" appended in bash because it needs $LIBKRBN.
-        cxxflags=( ${cxxflagsShell} -I "$LIBKRBN/include" )
-        frameworks=( ${frameworksShell} )
+        cxxflags+=( -I "$LIBKRBN/include" )
 
         # Swift @_cdecl glue: one block per module, bridging-header from Nix.
         swiftObjs=()
