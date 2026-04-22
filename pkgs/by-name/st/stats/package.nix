@@ -78,7 +78,7 @@ let
     { name = "Clock"; }
   ];
 
-  allFrameworkNames = [ "Kit" ] ++ map (m: m.name) moduleConfigs;
+  allFrameworkNames = [ "Kit" ] ++ lib.catAttrs "name" moduleConfigs;
   moduleNames = lib.tail allFrameworkNames;
 
   toPlist = lib.generators.toPlist { escape = true; };
@@ -119,14 +119,6 @@ let
       TeamId = "RP2S87B72W";
     };
 
-  # Collect .swift files from directories into a bash array variable
-  findSwiftFiles = varName: dirs: ''
-    ${varName}=()
-    while IFS= read -r -d "" f; do
-      ${varName}+=("$f")
-    done < <(find ${lib.escapeShellArgs dirs} -name '*.swift' -print0 2>/dev/null)
-  '';
-
   # Full swiftc invocation for a module, optionally preceded by ObjC compilation
   buildModuleShell =
     mod:
@@ -156,7 +148,7 @@ let
         '') objcSources}
       ''}
 
-      ${findSwiftFiles swiftVar swiftDirs}
+      mapfile -d ''' ${swiftVar} < <(find ${lib.escapeShellArgs swiftDirs} -name '*.swift' -print0 2>/dev/null)
 
       swiftc \
         "''${commonSwiftFlags[@]}" \
@@ -256,7 +248,7 @@ stdenv.mkDerivation (finalAttrs: {
       -c Kit/lldb/lldb.m \
       -o "$buildDir/lldb.o"
 
-    ${findSwiftFiles "kitSwiftFiles" [ "Kit" ]}
+    mapfile -d ''' kitSwiftFiles < <(find Kit -name '*.swift' -print0 2>/dev/null)
     # Kit also compiles shared SMC source files (protocol.swift, smc.swift)
     kitSwiftFiles+=("SMC/Helper/protocol.swift" "SMC/smc.swift")
 
@@ -282,7 +274,7 @@ stdenv.mkDerivation (finalAttrs: {
 
     nixLog "Building Stats app"
 
-    ${findSwiftFiles "statsSwiftFiles" [ "Stats" ]}
+    mapfile -d ''' statsSwiftFiles < <(find Stats -name '*.swift' -print0 2>/dev/null)
 
     swiftc \
       "''${commonSwiftFlags[@]}" \
