@@ -537,8 +537,7 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     done
 
     # Collect Ghostty Swift sources
-    swiftFiles=()
-    while IFS= read -r -d "" f; do swiftFiles+=("$f"); done < <(
+    mapfile -d ''' swiftFiles < <(
       find macos/Sources -name '*.swift' \
         ${lib.concatMapStringsSep " " (p: "! -path '${p}'") swiftSourceExcludes} \
         ! -name '*_UIKit.swift' \
@@ -568,9 +567,7 @@ effectiveStdenv.mkDerivation (finalAttrs: {
       || nixLog "swiftc -c exited non-zero (expected: driver crash after compilation)"
 
     # Collect produced object files (for both the executable and DockTilePlugin)
-    swiftObjFiles=()
-    while IFS= read -r -d "" f; do swiftObjFiles+=("$f"); done \
-      < <(find "$buildDir/swift-objs" -name '*.o' -print0)
+    mapfile -d ''' swiftObjFiles < <(find "$buildDir/swift-objs" -name '*.o' -print0)
     nixLog "produced ''${#swiftObjFiles[@]} object files"
 
     # Shared object set + Sparkle for the exe and the plugin
