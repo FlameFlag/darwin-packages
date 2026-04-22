@@ -115,7 +115,7 @@ let
     }
   ];
 
-  allFrameworks = map (fw: fw.name) frameworks;
+  allFrameworks = lib.catAttrs "name" frameworks;
   objcFrameworks = lib.filter (fw: fw ? objc) frameworks;
 
   # Upstream alt-tab-macos resource layout. Recursive find+cp to flatten into
@@ -206,10 +206,7 @@ let
   buildSwiftModule = fw: ''
     (
       nixLog "Building ${fw.name}"
-      files=()
-      while IFS= read -r -d "" f; do
-        files+=("$f")
-      done < <(find ${fw.swiftSrcDir} -name '*.swift' -print0)
+      mapfile -d ''' files < <(find ${fw.swiftSrcDir} -name '*.swift' -print0)
       ${swiftFrameworkLink {
         inherit (fw) name;
         sourcesExpr = ''"''${files[@]}"'';
@@ -382,10 +379,7 @@ stdenv.mkDerivation (finalAttrs: {
       -c ${./stubs/AppCenterApplication.m} -o "$buildDir/AppCenterApplication.o"
 
     nixLog "Building AltTab"
-    files=()
-    while IFS= read -r -d "" f; do
-      files+=("$f")
-    done < <(find src -name '*.swift' -not -path '*/experimentations/*' -print0)
+    mapfile -d ''' files < <(find src -name '*.swift' -not -path '*/experimentations/*' -print0)
 
     swiftc "''${commonSwiftFlags[@]}" \
       -emit-executable -module-name AltTab \
