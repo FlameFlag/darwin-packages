@@ -9,6 +9,7 @@ on:
       - "flake.nix"
       - "flake.lock"
       - ".github/workflows/build-packages.yaml"
+      - ".github/actions/setup-nix/**"
   pull_request:
     paths:
       - "pkgs/by-name/**"
@@ -16,6 +17,7 @@ on:
       - "flake.nix"
       - "flake.lock"
       - ".github/workflows/build-packages.yaml"
+      - ".github/actions/setup-nix/**"
 
 permissions:
   contents: read
@@ -54,17 +56,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - uses: DeterminateSystems/nix-installer-action@v22
-
-      - uses: nix-community/cache-nix-action@v7.0.2
+      - uses: ./.github/actions/setup-nix
         with:
-          primary-key: nix-${{ runner.os }}-${{ matrix.package }}-${{ hashFiles('flake.lock', format('pkgs/by-name/**/{0}/**', matrix.package)) }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-${{ matrix.package }}-
-          purge: true
-          purge-prefixes: nix-${{ runner.os }}-${{ matrix.package }}-
-          purge-created: 0
-          purge-last-accessed: 604800
-          purge-primary-key: never
+          cache-key: ${{ matrix.package }}
+          cache-hash-files: |
+            flake.lock
+            pkgs/by-name/**/${{ matrix.package }}/**
 
       - name: Build ${{ matrix.package }}
         run: nix build --print-build-logs ".#${{ matrix.package }}"

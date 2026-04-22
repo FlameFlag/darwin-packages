@@ -1,0 +1,28 @@
+name: 'Setup Nix'
+description: 'Install Nix and optionally configure the shared cache-nix-action'
+
+inputs:
+  cache-key:
+    description: 'Distinctive segment for the cache primary key (leave empty to skip caching)'
+    required: false
+    default: ''
+  cache-hash-files:
+    description: 'Newline-separated glob list passed to hashFiles() for the primary key suffix'
+    required: false
+    default: 'flake.lock'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: DeterminateSystems/nix-installer-action@v22
+
+    - if: inputs.cache-key != ''
+      uses: nix-community/cache-nix-action@v7.0.2
+      with:
+        primary-key: nix-${{ runner.os }}-${{ inputs.cache-key }}-${{ hashFiles(inputs.cache-hash-files) }}
+        restore-prefixes-first-match: nix-${{ runner.os }}-${{ inputs.cache-key }}-
+        purge: true
+        purge-prefixes: nix-${{ runner.os }}-${{ inputs.cache-key }}-
+        purge-created: 0
+        purge-last-accessed: 604800
+        purge-primary-key: never
