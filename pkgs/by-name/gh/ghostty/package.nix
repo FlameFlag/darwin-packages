@@ -58,6 +58,12 @@ let
   });
 
   toPlist = lib.generators.toPlist { escape = true; };
+  prefixEach =
+    flag:
+    lib.concatMap (value: [
+      flag
+      value
+    ]);
 
   mkFrameworkPlist =
     { name, identifier }:
@@ -85,6 +91,91 @@ let
       CFBundleVersion = "1";
       NSPrincipalClass = principalClass;
     };
+
+  macosPlatformVersionFlags = [
+    "-Xlinker"
+    "-platform_version"
+    "-Xlinker"
+    "macos"
+    "-Xlinker"
+    "13.0"
+    "-Xlinker"
+    "26.0"
+  ];
+
+  baseSwiftFlags = [
+    "-O"
+    "-enable-bare-slash-regex"
+    "-Xfrontend"
+    "-solver-expression-time-threshold=600"
+  ] ++ macosPlatformVersionFlags;
+
+  baseCommonLinkFlags = [
+    "-target"
+    "arm64-apple-macosx13.0"
+  ] ++ macosPlatformVersionFlags;
+
+  # Keep the Nix-store Swift runtime path after the SDK path so the linker
+  # prefers the SDK's .tbd stubs, which resolve to /usr/lib/swift at runtime.
+  baseSwiftRuntimeFlags = [
+    "-L"
+    "${swift}/lib/swift/macosx"
+    "-lswiftCore"
+    "-lswift_Concurrency"
+    "-lswift_StringProcessing"
+    "-lswiftObservation"
+    "-lswiftFoundation"
+    "-lswiftAppKit"
+    "-lswiftCoreFoundation"
+    "-lswiftCoreGraphics"
+    "-lswiftDarwin"
+    "-lswiftDispatch"
+    "-lswiftObjectiveC"
+    "-Xlinker"
+    "-rpath"
+    "-Xlinker"
+    "${swift}/lib/swift/macosx"
+  ];
+
+  objcHelperCompileFlags = [
+    "-fobjc-arc"
+    "-O2"
+    "-I"
+    "macos/Sources/Helpers"
+  ] ++ prefixEach "-framework" [
+    "AppKit"
+    "Foundation"
+  ];
+
+  ghosttyExecutableFrameworks = [
+    "SwiftUI"
+    "Combine"
+    "AppKit"
+    "Cocoa"
+    "Carbon"
+    "CoreGraphics"
+    "CoreText"
+    "Foundation"
+    "IOKit"
+    "Metal"
+    "MetalKit"
+    "QuartzCore"
+    "UniformTypeIdentifiers"
+    "UserNotifications"
+  ];
+
+  ghosttyExecutableLibs = [
+    "swiftIOKit"
+    "swiftQuartzCore"
+    "swiftUniformTypeIdentifiers"
+    "swiftXPC"
+  ];
+
+  dockTilePluginFrameworks = [
+    "AppKit"
+    "Foundation"
+    "SwiftUI"
+  ];
 
   # Assemble a macOS .app bundle from its components. Emits shell that uses
   # an `$app` variable (set here) for subsequent phase code. Every path-valued
@@ -262,8 +353,14 @@ let
         "AppKit"
       ],
     }:
+    let
+      frameworkFlags = prefixEach "-framework" frameworks;
+    in
     ''
       nixLog "building ${name} stub framework"
+      ${lib.toShellVars {
+        inherit frameworkFlags;
+      }}
       swift-frontend -c -parse-as-library \
         -O -sdk "$SDKROOT" -target arm64-apple-macosx13.0 \
         -module-name ${name} -module-link-name ${name} \
@@ -277,7 +374,7 @@ let
         -install_name "@rpath/${name}.framework/${name}" \
         "''${commonLinkFlags[@]}" \
         -L "$SDKROOT/usr/lib/swift" -L ${swift}/lib/swift/macosx -lswiftCore \
-        ${lib.concatMapStringsSep " " (f: "-framework ${f}") frameworks}
+        "''${frameworkFlags[@]}"
     '';
 
   # Link a Swift+ObjC binary (executable or dylib) against the Ghostty
@@ -289,21 +386,23 @@ let
       kind ? "exe", # "exe" or "dylib"
       frameworks ? [ ],
       libs ? [ ], # extra -l flags (e.g. swiftIOKit)
-      extraArgs ? [ ], # raw trailing args
+      extraArgs ? [ ], # flat trailing argv
     }:
     let
       kindFlag = lib.optionalString (kind == "dylib") "-dynamiclib ";
-      frameworkArgs = lib.concatMapStringsSep " " (f: "-framework ${f}") frameworks;
-      libArgs = lib.concatMapStringsSep " " (l: "-l${l}") libs;
-      extras = lib.concatStringsSep " " extraArgs;
+      staticLinkArgs =
+        (map (l: "-l${l}") libs)
+        ++ prefixEach "-framework" frameworks
+        ++ extraArgs;
     in
     ''
+      ${lib.toShellVars {
+        inherit staticLinkArgs;
+      }}
       clang ${kindFlag}-o "${output}" \
         "''${ghosttyObjs[@]}" \
         "''${commonLinkFlags[@]}" "''${swiftRuntimeFlags[@]}" \
-        ${libArgs} \
-        ${frameworkArgs} \
-        ${extras}
+        "''${staticLinkArgs[@]}"
     '';
 in
 effectiveStdenv.mkDerivation (finalAttrs: {
@@ -492,21 +591,26 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     export SDKROOT="${swiftSdkPath}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
 
     ${swiftShimSetup}
+    ${lib.toShellVars {
+      inherit
+        baseSwiftFlags
+        baseCommonLinkFlags
+        baseSwiftRuntimeFlags
+        objcHelperCompileFlags
+        ;
+    }}
 
     # Common Swift compile flags
     swiftFlags=(
-      -O -enable-bare-slash-regex
+      "''${baseSwiftFlags[@]}"
       -sdk "$SDKROOT"
       -I "$SDKROOT/usr/lib/swift"
-      -Xfrontend -solver-expression-time-threshold=600
-      -Xlinker -platform_version -Xlinker macos -Xlinker 13.0 -Xlinker 26.0
     )
 
     # Shared clang link flags: target + sysroot + platform version
     commonLinkFlags=(
-      -target arm64-apple-macosx13.0
+      "''${baseCommonLinkFlags[@]}"
       -isysroot "$SDKROOT"
-      -Xlinker -platform_version -Xlinker macos -Xlinker 13.0 -Xlinker 26.0
     )
 
     # Swift runtime library flags. SDK path FIRST so the linker uses the
@@ -516,11 +620,7 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     swiftRuntimeFlags=(
       -lstdc++
       -L "$SDKROOT/usr/lib/swift"
-      -L ${swift}/lib/swift/macosx
-      -lswiftCore -lswift_Concurrency -lswift_StringProcessing -lswiftObservation
-      -lswiftFoundation -lswiftAppKit -lswiftCoreFoundation
-      -lswiftCoreGraphics -lswiftDarwin -lswiftDispatch -lswiftObjectiveC
-      -Xlinker -rpath -Xlinker "${swift}/lib/swift/macosx"
+      "''${baseSwiftRuntimeFlags[@]}"
     )
 
     ${mkSwiftStubFramework {
@@ -531,8 +631,7 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     # ObjC helpers (single .m files, compiled per-name)
     nixLog "compiling ObjC helpers"
     for name in ${lib.escapeShellArgs objcHelpers}; do
-      clang -fobjc-arc -O2 -I macos/Sources/Helpers \
-        -framework AppKit -framework Foundation \
+      clang "''${objcHelperCompileFlags[@]}" \
         -c "macos/Sources/Helpers/$name.m" -o "$buildDir/$name.o"
     done
 
@@ -581,29 +680,14 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     nixLog "linking Ghostty executable"
     ${mkSwiftLink {
       output = "$buildDir/ghostty";
-      libs = [
-        "swiftIOKit"
-        "swiftQuartzCore"
-        "swiftUniformTypeIdentifiers"
-        "swiftXPC"
+      libs = ghosttyExecutableLibs;
+      frameworks = ghosttyExecutableFrameworks;
+      extraArgs = [
+        "-Xlinker"
+        "-rpath"
+        "-Xlinker"
+        "@executable_path/../Frameworks"
       ];
-      frameworks = [
-        "SwiftUI"
-        "Combine"
-        "AppKit"
-        "Cocoa"
-        "Carbon"
-        "CoreGraphics"
-        "CoreText"
-        "Foundation"
-        "IOKit"
-        "Metal"
-        "MetalKit"
-        "QuartzCore"
-        "UniformTypeIdentifiers"
-        "UserNotifications"
-      ];
-      extraArgs = [ ''-Xlinker -rpath -Xlinker "@executable_path/../Frameworks"'' ];
     }}
 
     # DockTilePlugin references types from the full Ghostty module, so we
@@ -612,12 +696,11 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     ${mkSwiftLink {
       output = "$buildDir/DockTilePlugin";
       kind = "dylib";
-      frameworks = [
-        "AppKit"
-        "Foundation"
-        "SwiftUI"
+      frameworks = dockTilePluginFrameworks;
+      extraArgs = [
+        "-install_name"
+        "@rpath/DockTilePlugin.plugin/Contents/MacOS/DockTilePlugin"
       ];
-      extraArgs = [ ''-install_name "@rpath/DockTilePlugin.plugin/Contents/MacOS/DockTilePlugin"'' ];
     }}
   '';
 
