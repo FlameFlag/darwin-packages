@@ -80,6 +80,54 @@ let
 
   allFrameworkNames = [ "Kit" ] ++ lib.catAttrs "name" moduleConfigs;
   moduleNames = lib.tail allFrameworkNames;
+  kitSharedSwiftSources = [
+    "SMC/Helper/protocol.swift"
+    "SMC/smc.swift"
+  ];
+
+  commonSwiftFlags = [
+    "-O"
+    "-Xcc"
+    "-IKit/lldb"
+    "-Xcc"
+    "-IKit/lldb/include"
+    "-Xcc"
+    "-I${leveldb.dev}/include/leveldb"
+    "-disable-bridging-pch"
+    # Stamp binaries with macOS 26 SDK version so the system applies Liquid Glass UI
+    # The Swift compiler in nixpkgs uses SDK 14 headers (which compile fine), but without
+    # this flag the linker records SDK 14 and macOS withholds it (Liquid Glass)
+    "-Xlinker"
+    "-platform_version"
+    "-Xlinker"
+    "macos"
+    "-Xlinker"
+    "14.0"
+    "-Xlinker"
+    "26.0"
+  ];
+
+  kitObjcFlags = [
+    "-x"
+    "objective-c++"
+    "-I"
+    "Kit/lldb/include"
+    "-I"
+    "Kit/lldb"
+    "-I"
+    "${leveldb.dev}/include/leveldb"
+    "-fobjc-arc"
+    "-O2"
+  ];
+
+  kitLinkFlags = [
+    "-L"
+    "${leveldb}/lib"
+    "-lleveldb"
+    "-lstdc++"
+  ];
+
+  statsFrameworkFlags = map (name: "-l${name}") allFrameworkNames;
 
   toPlist = lib.generators.toPlist { escape = true; };
 
@@ -224,33 +272,26 @@ stdenv.mkDerivation (finalAttrs: {
     buildDir="$PWD/build"
     mkdir -p "$buildDir"
 
-    commonSwiftFlags=(
-      -O
-      -Xcc -IKit/lldb
-      -Xcc -IKit/lldb/include
-      -Xcc -I${leveldb.dev}/include/leveldb
-      -disable-bridging-pch
-      # Stamp binaries with macOS 26 SDK version so the system applies Liquid Glass UI
-      # The Swift compiler in nixpkgs uses SDK 14 headers (which compile fine), but without
-      # this flag the linker records SDK 14 and macOS withholds it (Liquid Glass)
-      -Xlinker -platform_version -Xlinker macos -Xlinker 14.0 -Xlinker 26.0
-    )
+    ${lib.toShellVars {
+      inherit
+        commonSwiftFlags
+        kitObjcFlags
+        kitLinkFlags
+        kitSharedSwiftSources
+        statsFrameworkFlags
+        ;
+    }}
 
     nixLog "Building Kit"
 
     # Compile lldb.m (Objective-C++ with LevelDB)
-    clang++ -x objective-c++ \
-      -I Kit/lldb/include \
-      -I Kit/lldb \
-      -I ${leveldb.dev}/include/leveldb \
-      -fobjc-arc \
-      -O2 \
+    clang++ "''${kitObjcFlags[@]}" \
       -c Kit/lldb/lldb.m \
       -o "$buildDir/lldb.o"
 
     mapfile -d ''' kitSwiftFiles < <(find Kit -name '*.swift' -print0 2>/dev/null)
     # Kit also compiles shared SMC source files (protocol.swift, smc.swift)
-    kitSwiftFiles+=("SMC/Helper/protocol.swift" "SMC/smc.swift")
+    kitSwiftFiles+=("''${kitSharedSwiftSources[@]}")
 
     swiftc \
       "''${commonSwiftFlags[@]}" \
@@ -265,8 +306,7 @@ stdenv.mkDerivation (finalAttrs: {
       -Xcc -I${leveldb.dev}/include/leveldb \
       -Xlinker -install_name -Xlinker "@rpath/Kit.framework/Kit" \
       "$buildDir/lldb.o" \
-      -L ${leveldb}/lib -lleveldb \
-      -lstdc++ \
+      "''${kitLinkFlags[@]}" \
       "''${kitSwiftFiles[@]}" \
       -o "$buildDir/libKit.dylib"
 
@@ -282,7 +322,7 @@ stdenv.mkDerivation (finalAttrs: {
       -module-name Stats \
       -I "$buildDir" \
       -L "$buildDir" \
-      ${lib.concatMapStringsSep " " (name: "-l${name}") allFrameworkNames} \
+      "''${statsFrameworkFlags[@]}" \
       -Xlinker -rpath -Xlinker "@executable_path/../Frameworks" \
       "''${statsSwiftFiles[@]}" \
       -o "$buildDir/Stats"

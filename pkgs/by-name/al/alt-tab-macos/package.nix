@@ -117,6 +117,18 @@ let
 
   allFrameworks = lib.catAttrs "name" frameworks;
   objcFrameworks = lib.filter (fw: fw ? objc) frameworks;
+  commonSwiftFlags = [
+    "-O"
+    "-disable-bridging-pch"
+    "-Xlinker"
+    "-platform_version"
+    "-Xlinker"
+    "macos"
+    "-Xlinker"
+    "14.0"
+    "-Xlinker"
+    "26.0"
+  ];
 
   # Upstream alt-tab-macos resource layout. Recursive find+cp to flatten into
   # Contents/Resources/. Extend if upstream introduces new asset directories
@@ -364,13 +376,7 @@ stdenv.mkDerivation (finalAttrs: {
     buildDir="$PWD/build"
     mkdir -p "$buildDir"
 
-    # apple-sdk_26 cannot be used here because swiftPackages compiles its own modules
-    # against apple-sdk_14; adding it to buildInputs redirects SDKROOT and breaks Swift's
-    # foundational modules
-    commonSwiftFlags=(
-      -O -disable-bridging-pch
-      -Xlinker -platform_version -Xlinker macos -Xlinker 14.0 -Xlinker 26.0
-    )
+    ${lib.toShellVars { inherit commonSwiftFlags; }}
 
     ${lib.concatMapStringsSep "\n" buildFramework frameworks}
 
