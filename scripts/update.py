@@ -194,7 +194,7 @@ def write_pkg_summary(nix_file: Path, meta: Metadata, version: str) -> None:
     gha_summary("".join(parts))
 
 
-def update_one(nix_file: Path, version: str = "branch") -> None:
+def update_one(nix_file: Path, version: str = "stable") -> None:
     abs_nix_file = nix_file.resolve()
     with gha_group(f"Package update: {nix_file}"):
         meta = extract_metadata(abs_nix_file)
@@ -250,7 +250,7 @@ def cmd_pkg(
         help="Path to a package.nix under pkgs/by-name.",
     ),
     version: str = typer.Option(
-        "branch",
+        "stable",
         "--version",
         help="Version argument for nix-update (ignored when an updateScript is present).",
     ),
