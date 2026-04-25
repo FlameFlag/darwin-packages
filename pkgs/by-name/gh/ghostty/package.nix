@@ -43,6 +43,7 @@ let
   # On macOS, use Swift-capable stdenv
   effectiveStdenv = if isDarwin then swiftPackages.stdenv else stdenv;
   swift = swiftPackages.swift;
+  appIntentsMetadataProcessor = callPackage ../../re/re-appintentsmetadataprocessor/package.nix { };
 
   # SDK 14.4 path for Swift compilation (Swift 5.10 is incompatible with SDK 15.5)
   swiftSdkPath = apple-sdk;
@@ -151,6 +152,7 @@ let
     "SwiftUI"
     "Combine"
     "AppKit"
+    "AppIntents"
     "Cocoa"
     "Carbon"
     "CoreGraphics"
@@ -298,7 +300,6 @@ let
     "*/iOS/*"
     "*/Tests/*"
     "*/GhosttyUITests/*"
-    "*/App Intents/*"
   ];
 
   # zig-out/share/<src> -> Contents/Resources/<dest>. Empty dest flattens into
@@ -647,11 +648,13 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     # crashes during its own link phase in the Nix sandbox, so we use an
     # output-file-map to collect per-source objects.
     nixLog "compiling Ghostty macOS app (''${#swiftFiles[@]} swift files)"
+    printf '%s' '["AppIntent","EntityQuery","AppEntity","TransientEntity","AppEnum","AppShortcutProviding","AppShortcutsProvider","AnyResolverProviding","AppIntentsPackage","DynamicOptionsProvider"]' \
+      > "$buildDir/app-intents-const-protocols.json"
     {
       printf '{\n'
       for src in "''${swiftFiles[@]}"; do
         name=$(basename "$src" .swift)
-        printf '  "%s": {"object": "%s/swift-objs/%s.o"},\n' "$src" "$buildDir" "$name"
+        printf '  "%s": {"object": "%s/swift-objs/%s.o", "const-values": "%s/swift-objs/%s.swiftconstvalues"},\n' "$src" "$buildDir" "$name" "$buildDir" "$name"
       done
       printf '  "": {"swift-dependencies": "%s/swift-objs/Ghostty-master.swiftdeps"}\n}\n' "$buildDir"
     } > "$buildDir/output-file-map.json"
@@ -662,6 +665,9 @@ effectiveStdenv.mkDerivation (finalAttrs: {
       -I "$buildDir" -I include -I macos/Sources/Helpers \
       -Xcc -I -Xcc macos/Sources/Helpers \
       -c -output-file-map "$buildDir/output-file-map.json" \
+      -emit-const-values \
+      -Xfrontend -const-gather-protocols-file \
+      -Xfrontend "$buildDir/app-intents-const-protocols.json" \
       "''${swiftFiles[@]}" \
       || nixLog "swiftc -c exited non-zero (expected: driver crash after compilation)"
 
@@ -702,6 +708,31 @@ effectiveStdenv.mkDerivation (finalAttrs: {
         "@rpath/DockTilePlugin.plugin/Contents/MacOS/DockTilePlugin"
       ];
     }}
+
+    printf '%s\n' "''${swiftFiles[@]}" > "$buildDir/Ghostty.SwiftFileList"
+    find "$buildDir/swift-objs" -name '*.swiftconstvalues' -size +0c -print \
+      | sort > "$buildDir/Ghostty.SwiftConstValuesFileList"
+
+    if [ -s "$buildDir/Ghostty.SwiftConstValuesFileList" ]; then
+      nixLog "extracting Ghostty App Intents metadata"
+      rm -rf "$buildDir/appintents-output"
+      ${lib.getExe appIntentsMetadataProcessor} \
+        --toolchain-dir "${swift}" \
+        --sdk-root "$SDKROOT" \
+        --module-name Ghostty \
+        --xcode-version 16A242d \
+        --platform-family macOS \
+        --deployment-target 13.0 \
+        --target-triple arm64-apple-macos13.0 \
+        --output "$buildDir/appintents-output" \
+        --source-file-list "$buildDir/Ghostty.SwiftFileList" \
+        --swift-const-vals-list "$buildDir/Ghostty.SwiftConstValuesFileList" \
+        --binary-file "$buildDir/ghostty" \
+        --force \
+        --compile-time-extraction
+    else
+      nixLog "no Swift const-values emitted; skipping App Intents metadata extraction"
+    fi
   '';
 
   installPhase =
@@ -737,6 +768,11 @@ effectiveStdenv.mkDerivation (finalAttrs: {
           sdef = "macos/Ghostty.sdef";
           assetCatalog = "macos/Assets.xcassets";
         }}
+
+        if [ -d "$buildDir/appintents-output/Metadata.appintents" ]; then
+          nixLog "installing App Intents metadata"
+          cp -r "$buildDir/appintents-output/Metadata.appintents" "$app/Contents/Resources/"
+        fi
 
         # Metal shaders are found by glob (zig writes them under a
         # version-dependent subdir of $zigOut).

@@ -63,6 +63,16 @@ index 858d5ce..b04bc48 100644
      )
      var command: String?
  
+@@ -25,8 +25,7 @@ struct NewTerminalIntent: AppIntent {
+ 
+     @Parameter(
+         title: "Working Directory",
+-        description: "The working directory to open in the terminal.",
+-        supportedContentTypes: [.folder]
++        description: "The working directory to open in the terminal."
+     )
+     var workingDirectory: IntentFile?
+ 
 diff --git a/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift b/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift
 index 990cd8b..9b4e7c4 100644
 --- a/macos/Sources/Features/Custom App Icon/DockTilePlugin.swift	
