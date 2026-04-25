@@ -27,6 +27,7 @@
   oniguruma,
   pandoc,
   pkg-config,
+  re-appintentsmetadataprocessor,
   removeReferencesTo,
   versionCheckHook,
   wrapGAppsHook4,
@@ -43,7 +44,6 @@ let
   # On macOS, use Swift-capable stdenv
   effectiveStdenv = if isDarwin then swiftPackages.stdenv else stdenv;
   swift = swiftPackages.swift;
-  appIntentsMetadataProcessor = callPackage ../../re/re-appintentsmetadataprocessor/package.nix { };
 
   # SDK 14.4 path for Swift compilation (Swift 5.10 is incompatible with SDK 15.5)
   swiftSdkPath = apple-sdk;
@@ -716,7 +716,7 @@ effectiveStdenv.mkDerivation (finalAttrs: {
     if [ -s "$buildDir/Ghostty.SwiftConstValuesFileList" ]; then
       nixLog "extracting Ghostty App Intents metadata"
       rm -rf "$buildDir/appintents-output"
-      ${lib.getExe appIntentsMetadataProcessor} \
+      ${lib.getExe re-appintentsmetadataprocessor} \
         --toolchain-dir "${swift}" \
         --sdk-root "$SDKROOT" \
         --module-name Ghostty \
