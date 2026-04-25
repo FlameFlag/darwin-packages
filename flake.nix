@@ -107,6 +107,7 @@
         {
           update = {
             type = "app";
+            meta.description = "Update packages and verify changed builds";
             program = toString (
               pkgs.writeShellScript "update" ''
                 exec ${pkgs.uv}/bin/uv run --project ${inputs.self} \
@@ -116,6 +117,7 @@
           };
           gen-pkg-table = {
             type = "app";
+            meta.description = "Regenerate the README package table";
             program = toString (
               pkgs.writeShellScript "gen-pkg-table" ''
                 exec ${pkgs.uv}/bin/uv run --project ${inputs.self} \

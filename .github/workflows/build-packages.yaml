@@ -8,6 +8,8 @@ on:
       - "default.nix"
       - "flake.nix"
       - "flake.lock"
+      - "scripts/_common.py"
+      - "scripts/changed-packages.py"
       - ".github/workflows/build-packages.yaml"
       - ".github/actions/setup-nix/**"
   pull_request:
@@ -16,6 +18,8 @@ on:
       - "default.nix"
       - "flake.nix"
       - "flake.lock"
+      - "scripts/_common.py"
+      - "scripts/changed-packages.py"
       - ".github/workflows/build-packages.yaml"
       - ".github/actions/setup-nix/**"
 
