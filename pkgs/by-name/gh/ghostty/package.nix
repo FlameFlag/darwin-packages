@@ -109,12 +109,14 @@ let
     "-enable-bare-slash-regex"
     "-Xfrontend"
     "-solver-expression-time-threshold=600"
-  ] ++ macosPlatformVersionFlags;
+  ]
+  ++ macosPlatformVersionFlags;
 
   baseCommonLinkFlags = [
     "-target"
     "arm64-apple-macosx13.0"
-  ] ++ macosPlatformVersionFlags;
+  ]
+  ++ macosPlatformVersionFlags;
 
   # Keep the Nix-store Swift runtime path after the SDK path so the linker
   # prefers the SDK's .tbd stubs, which resolve to /usr/lib/swift at runtime.
@@ -143,7 +145,8 @@ let
     "-O2"
     "-I"
     "macos/Sources/Helpers"
-  ] ++ prefixEach "-framework" [
+  ]
+  ++ prefixEach "-framework" [
     "AppKit"
     "Foundation"
   ];
@@ -391,10 +394,7 @@ let
     }:
     let
       kindFlag = lib.optionalString (kind == "dylib") "-dynamiclib ";
-      staticLinkArgs =
-        (map (l: "-l${l}") libs)
-        ++ prefixEach "-framework" frameworks
-        ++ extraArgs;
+      staticLinkArgs = (map (l: "-l${l}") libs) ++ prefixEach "-framework" frameworks ++ extraArgs;
     in
     ''
       ${lib.toShellVars {
