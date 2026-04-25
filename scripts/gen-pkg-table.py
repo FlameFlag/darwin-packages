@@ -8,40 +8,17 @@ or `cog --check README.md` to verify in CI.
 
 from __future__ import annotations
 
-import re
-import subprocess
-from pathlib import Path
-
 from rich.console import Console
 from rich.progress import track
 from tabulate import tabulate
 
 from _common import REPO_ROOT as ROOT
-from _common import nix_eval
+from _common import nix_eval, nix_flake_attr, nix_string_attr
 
 _err = Console(stderr=True)
 
 BY_NAME = ROOT / "pkgs" / "by-name"
 SYSTEM = nix_eval("builtins.currentSystem", check=True)
-
-
-def nix_attr(pkg: str, attr: str) -> str:
-    r = subprocess.run(
-        ["nix", "eval", "--impure", "--raw", f".#legacyPackages.{SYSTEM}.{pkg}.{attr}"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-    )
-    return r.stdout.strip() if r.returncode == 0 else ""
-
-
-def scrape(pkgfile: Path, key: str) -> str:
-    m = re.search(
-        rf'^\s*{re.escape(key)}\s*=\s*"([^"]*)"\s*;',
-        pkgfile.read_text(),
-        re.M,
-    )
-    return m.group(1) if m else ""
 
 
 def rows() -> list[list[str]]:
@@ -52,8 +29,8 @@ def rows() -> list[list[str]]:
         console=_err,
     ):
         name = f.parent.name
-        version = nix_attr(name, "version") or scrape(f, "version")
-        desc = nix_attr(name, "meta.description") or scrape(f, "description")
+        version = nix_flake_attr(name, "version", SYSTEM) or nix_string_attr(f, "version")
+        desc = nix_flake_attr(name, "meta.description", SYSTEM) or nix_string_attr(f, "description")
         link = f.parent.relative_to(ROOT).as_posix()
         out.append([f"[`{name}`]({link})", f"`{version or '?'}`", desc])
     return out

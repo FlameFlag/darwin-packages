@@ -15,13 +15,12 @@ running in Actions, and prints the JSON list to stdout either way.
 from __future__ import annotations
 
 import json
-import re
 from collections import defaultdict, deque
 from pathlib import Path
 
 import typer
 
-from _common import REPO_ROOT, gha_output, run
+from _common import REPO_ROOT, gha_output, nix_top_level_formal_args, run
 
 INFRA_FILES = {
     "flake.nix",
@@ -35,8 +34,6 @@ INFRA_PREFIXES = (".github/actions/setup-nix/",)
 
 BY_NAME = Path("pkgs/by-name")
 ZERO_SHA = "0" * 40
-FORMAL_ARG_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_'-]*)")
-TOP_LEVEL_ARGS_RE = re.compile(r"\A\s*\{(?P<body>.*?)\}\s*:", re.DOTALL)
 
 app = typer.Typer(add_completion=False, help=__doc__)
 
@@ -71,25 +68,11 @@ def existing_packages(pkgs: set[str]) -> list[str]:
     return sorted(p for p in pkgs if p in package_files)
 
 
-def top_level_formal_args(nix_file: Path) -> set[str]:
-    """Return the function argument names from a simple `{ ... }:` package.nix."""
-    content = re.sub(r"#.*", "", nix_file.read_text())
-    match = TOP_LEVEL_ARGS_RE.match(content)
-    if not match:
-        return set()
-
-    args: set[str] = set()
-    for item in match.group("body").split(","):
-        if arg_match := FORMAL_ARG_RE.match(item):
-            args.add(arg_match.group(1))
-    return args
-
-
 def local_dependency_graph() -> dict[str, set[str]]:
     package_files = package_nix_files()
     package_names = set(package_files)
     return {
-        package: top_level_formal_args(nix_file) & package_names
+        package: nix_top_level_formal_args(nix_file) & package_names
         for package, nix_file in package_files.items()
     }
 
