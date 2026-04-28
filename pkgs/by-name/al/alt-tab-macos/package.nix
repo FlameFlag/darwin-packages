@@ -350,7 +350,7 @@ stdenv.mkDerivation (finalAttrs: {
   patches = [
     ./0001-replace-count-where-with-filter-.count-for-Swift-5.1.patch
     ./0002-replace-.extraLarge-with-.large-for-macOS-26-SDK.patch
-    ./0003-remove-Liquid-Glass-macOS-26-API-for-SDK-14-compatib.patch
+    ./0003-replace-Liquid-Glass-NSGlassEffectView-inheritance-w.patch
   ];
 
   # Remove trailing comma incompatible with Swift 5.10
