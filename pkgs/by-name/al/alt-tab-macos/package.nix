@@ -424,6 +424,8 @@ stdenv.mkDerivation (finalAttrs: {
     # ttf fonts, etc.) add the pattern here.
     cp resources/icons/app/app.icns "$app/Contents/Resources/app.icns"
     cp resources/*.otf "$app/Contents/Resources/"
+    # AcknowledgmentsTab loads these via Bundle.main.url(forResource:withExtension:"md")!
+    cp docs/contributors.md docs/acknowledgments.md "$app/Contents/Resources/"
     ${lib.concatMapStringsSep "\n" (spec: ''
       find ${spec.root} -name '${spec.pattern}' ${lib.optionalString (spec ? type) "-type ${spec.type}"} \
         -exec cp ${spec.cpFlags or ""} {} "$app/Contents/Resources/" \;
