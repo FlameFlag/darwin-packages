@@ -93,9 +93,9 @@ cog.out("\n" + subprocess.check_output(
 |--------------------------------------------------------------------------|-----------|------------------------------------------------------------------------------|
 | [`alt-tab-macos`](pkgs/by-name/al/alt-tab-macos)                         | `10.12.0` | Windows alt-tab on macOS                                                     |
 | [`ghostty`](pkgs/by-name/gh/ghostty)                                     | `1.3.1`   | Fast, native, feature-rich terminal emulator pushing modern features         |
-| [`karabiner-elements`](pkgs/by-name/ka/karabiner-elements)               | `15.9.0`  | Powerful utility for keyboard customization on macOS Ventura (13) or later   |
-| [`karabiner-elements-vendor`](pkgs/by-name/ka/karabiner-elements-vendor) | `15.9.0`  | Vendored C++ dependencies (asio, spdlog, pqrs/*, ...) for karabiner-elements |
-| [`libkrbn`](pkgs/by-name/li/libkrbn)                                     | `15.9.0`  | Karabiner-Elements configuration library (C API over the C++ core)           |
+| [`karabiner-elements`](pkgs/by-name/ka/karabiner-elements)               | `16.0.0`  | Powerful utility for keyboard customization on macOS Ventura (13) or later   |
+| [`karabiner-elements-vendor`](pkgs/by-name/ka/karabiner-elements-vendor) | `16.0.0`  | Vendored C++ dependencies (asio, spdlog, pqrs/*, ...) for karabiner-elements |
+| [`libkrbn`](pkgs/by-name/li/libkrbn)                                     | `16.0.0`  | Karabiner-Elements configuration library (C API over the C++ core)           |
 | [`stats`](pkgs/by-name/st/stats)                                         | `2.12.12` | macOS system monitor in your menu bar                                        |
 
 <!--[[[end]]]-->
