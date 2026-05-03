@@ -96,6 +96,6 @@ cog.out("\n" + subprocess.check_output(
 | [`karabiner-elements`](pkgs/by-name/ka/karabiner-elements)               | `16.0.0`  | Powerful utility for keyboard customization on macOS Ventura (13) or later   |
 | [`karabiner-elements-vendor`](pkgs/by-name/ka/karabiner-elements-vendor) | `16.0.0`  | Vendored C++ dependencies (asio, spdlog, pqrs/*, ...) for karabiner-elements |
 | [`libkrbn`](pkgs/by-name/li/libkrbn)                                     | `16.0.0`  | Karabiner-Elements configuration library (C API over the C++ core)           |
-| [`stats`](pkgs/by-name/st/stats)                                         | `2.12.12` | macOS system monitor in your menu bar                                        |
+| [`stats`](pkgs/by-name/st/stats)                                         | `2.12.13` | macOS system monitor in your menu bar                                        |
 
 <!--[[[end]]]-->
