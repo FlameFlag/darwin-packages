@@ -230,13 +230,13 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "stats";
-  version = "2.12.14";
+  version = "2.12.15";
 
   src = fetchFromGitHub {
     owner = "exelban";
     repo = "Stats";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-42U3uEEM3oQquNdpoiLbMRTGsrOJkKCSmh06yL7LA58=";
+    hash = "sha256-md2LN1dPWhHDLFMY0sTG2PRA00pUGIt0Xt28dTKzU9o=";
   };
 
   nativeBuildInputs = [
