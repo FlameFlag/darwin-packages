@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.3
 
-      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: astral-sh/setup-uv@v8.2.0
 
       - name: Run zizmor
         run: uvx zizmor@latest --format sarif .github/workflows .github/actions > zizmor.sarif
