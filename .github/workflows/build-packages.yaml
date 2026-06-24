@@ -34,7 +34,7 @@ jobs:
       packages: ${{ steps.find.outputs.packages }}
       has_packages: ${{ steps.find.outputs.has_packages }}
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
 
@@ -58,7 +58,7 @@ jobs:
       matrix:
         package: ${{ fromJSON(needs.detect.outputs.packages) }}
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
 
       - uses: ./.github/actions/setup-nix
         with:
